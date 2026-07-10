@@ -15,7 +15,6 @@ interface ModelConfig {
   inputCostPer1K: number;  // Dummy rates
   outputCostPer1K: number; // Dummy rates
   strength: string;
-  regex: RegExp;
   placeholderKey: string;
   rawResponseTemplate: string;
 }
@@ -32,7 +31,6 @@ const MODEL_TEMPLATES: Record<string, ModelConfig> = {
     inputCostPer1K: 0.0025, // $2.50 per 1M tokens
     outputCostPer1K: 0.0100, // $10.00 per 1M tokens
     strength: "Precise coding & highly optimized execution syntax.",
-    regex: /^sk-[a-zA-Z0-9-]{20,100}$/,
     placeholderKey: "sk-proj-...",
     rawResponseTemplate: `### OpenAI GPT-4o Response
 Here is the requested sorting analysis:
@@ -56,7 +54,6 @@ def quicksort(arr):
     inputCostPer1K: 0.0030, // $3.00 per 1M tokens
     outputCostPer1K: 0.0150, // $15.00 per 1M tokens
     strength: "Architectural reasoning, edge case handling, and complexity bounds.",
-    regex: /^sk-ant-[a-zA-Z0-9-]{30,120}$/,
     placeholderKey: "sk-ant-...",
     rawResponseTemplate: `### Claude 3.5 Sonnet Response
 Evaluating sorting architectures:
@@ -81,7 +78,6 @@ def mergesort(arr):
     inputCostPer1K: 0.00125, // $1.25 per 1M tokens
     outputCostPer1K: 0.00375, // $3.75 per 1M tokens
     strength: "Explanatory analogies, context windows, and structured flows.",
-    regex: /^AIzaSy[a-zA-Z0-9_-]{30,45}$/,
     placeholderKey: "AIzaSy...",
     rawResponseTemplate: `### Gemini 1.5 Pro Response
 Think of sorting like sorting a library book shelf:
@@ -99,7 +95,6 @@ Think of sorting like sorting a library book shelf:
     inputCostPer1K: 0.00014, // $0.14 per 1M tokens
     outputCostPer1K: 0.00028, // $0.28 per 1M tokens
     strength: "Extremely cost-effective mathematical reasoning and clean logic.",
-    regex: /^(sk-ds-[a-zA-Z0-9-]{20,100}|sk-[a-zA-Z0-9]{32,48})$/,
     placeholderKey: "sk-ds-...",
     rawResponseTemplate: `### DeepSeek V3 Response
 Analyzing recursive optimizations:
@@ -122,7 +117,6 @@ def median_of_three(a, b, c):
     inputCostPer1K: 0.0020, // $2.00 per 1M tokens
     outputCostPer1K: 0.0060, // $6.00 per 1M tokens
     strength: "Systems design, European localization, and low overhead operations.",
-    regex: /^(sk-ms-[a-zA-Z0-9-]{20,100}|[a-zA-Z0-9]{32})$/,
     placeholderKey: "Mistral key...",
     rawResponseTemplate: `### Mistral Large Response
 Sorting complexity profile:
@@ -147,10 +141,31 @@ interface Chat {
     inputTokens: number;
     outputTokens: number;
     cost: number;
-    status: "idle" | "running" | "done" | "failed";
+    status: "idle" | "running" | "done" | "key_error" | "rate_limit" | "timeout" | "failed";
     rawResponse: string;
   }>;
 }
+
+// Simple Prefix Key Validation Checker
+const checkKeyValidity = (provider: string, key: string): "empty" | "valid" | "invalid" => {
+  if (!key || key.trim() === "") return "empty";
+  
+  const val = key.trim();
+  switch (provider.toLowerCase()) {
+    case "openai":
+      return val.startsWith("sk") ? "valid" : "invalid";
+    case "claude":
+      return val.startsWith("sk") ? "valid" : "invalid";
+    case "gemini":
+      return val.startsWith("AIza") ? "valid" : "invalid";
+    case "deepseek":
+      return val.startsWith("sk") ? "valid" : "invalid";
+    case "mistral":
+      return val.startsWith("sk") ? "valid" : "invalid";
+    default:
+      return "invalid";
+  }
+};
 
 export default function App() {
   // ==================== CORE STATE ====================
@@ -179,13 +194,7 @@ export default function App() {
     mistral: ""
   });
 
-  // Orchestrator Configuration Defaults
-  const [numWorkers, setNumWorkers] = useState(3);
-  const [selectedWorkers, setSelectedWorkers] = useState<string[]>(["openai", "mistral", "claude"]);
-  const [selectedEvaluator, setSelectedEvaluator] = useState<string>("claude");
-  const [autoTitleModel, setAutoTitleModel] = useState<string>("mistral");
-
-  // Key validation errors during typing
+  // Key validation states for settings UI
   const [keyValidationStates, setKeyValidationStates] = useState<Record<string, "empty" | "valid" | "invalid">>({
     openai: "empty",
     claude: "empty",
@@ -193,6 +202,22 @@ export default function App() {
     deepseek: "empty",
     mistral: "empty"
   });
+
+  // API Call Error Configuration Simulator
+  // 'success' | 'key_error' | 'rate_limit' | 'timeout'
+  const [apiErrorConfigs, setApiErrorConfigs] = useState<Record<string, "success" | "key_error" | "rate_limit" | "timeout">>({
+    openai: "success",
+    claude: "success",
+    gemini: "success",
+    deepseek: "success",
+    mistral: "success"
+  });
+
+  // Orchestrator Configuration Defaults
+  const [numWorkers, setNumWorkers] = useState(3);
+  const [selectedWorkers, setSelectedWorkers] = useState<string[]>(["openai", "mistral", "claude"]);
+  const [selectedEvaluator, setSelectedEvaluator] = useState<string>("claude");
+  const [autoTitleModel, setAutoTitleModel] = useState<string>("mistral");
 
   // UI state machine for orchestrator execution
   const [pipelineState, setPipelineState] = useState<"idle" | "running" | "completed">("idle");
@@ -228,16 +253,21 @@ export default function App() {
         // Pre-validate loaded keys
         const initialValidations: Record<string, "empty" | "valid" | "invalid"> = {};
         Object.keys(MODEL_TEMPLATES).forEach((k) => {
-          const val = parsed[k] || "";
-          if (val === "") {
-            initialValidations[k] = "empty";
-          } else {
-            initialValidations[k] = MODEL_TEMPLATES[k].regex.test(val) ? "valid" : "invalid";
-          }
+          initialValidations[k] = checkKeyValidity(k, parsed[k] || "");
         });
         setKeyValidationStates(initialValidations);
       } catch (e) {
         console.error("Failed to parse saved keys", e);
+      }
+    }
+
+    // Load API simulator settings
+    const savedApiConfigs = storage.getItem("orchestrator_api_configs");
+    if (savedApiConfigs) {
+      try {
+        setApiErrorConfigs(JSON.parse(savedApiConfigs));
+      } catch (e) {
+        console.error("Failed to parse error configs", e);
       }
     }
 
@@ -262,11 +292,17 @@ export default function App() {
   }, []);
 
   // Sync state helpers
-  const saveStateToStorage = (updatedChats: Chat[], updatedKeys: Record<string, string>, counter = nextChatCounter) => {
+  const saveStateToStorage = (
+    updatedChats: Chat[],
+    updatedKeys: Record<string, string>,
+    counter = nextChatCounter,
+    updatedApiConfigs = apiErrorConfigs
+  ) => {
     const storage = user ? localStorage : sessionStorage;
     storage.setItem("orchestrator_chats", JSON.stringify(updatedChats));
     storage.setItem("orchestrator_keys", JSON.stringify(updatedKeys));
     storage.setItem("orchestrator_chat_counter", counter.toString());
+    storage.setItem("orchestrator_api_configs", JSON.stringify(updatedApiConfigs));
   };
 
   // Auto-scroll handler
@@ -297,6 +333,7 @@ export default function App() {
     localStorage.setItem("orchestrator_chats", JSON.stringify(chats));
     localStorage.setItem("orchestrator_keys", JSON.stringify(apiKeys));
     localStorage.setItem("orchestrator_chat_counter", nextChatCounter.toString());
+    localStorage.setItem("orchestrator_api_configs", JSON.stringify(apiErrorConfigs));
   };
 
   const handleSignOut = () => {
@@ -305,6 +342,7 @@ export default function App() {
     sessionStorage.removeItem("orchestrator_chats");
     sessionStorage.removeItem("orchestrator_keys");
     sessionStorage.removeItem("orchestrator_chat_counter");
+    sessionStorage.removeItem("orchestrator_api_configs");
     // Reset core states to defaults (no chats, empty keys)
     setChats([]);
     setActiveChatId(null);
@@ -323,6 +361,13 @@ export default function App() {
       deepseek: "empty",
       mistral: "empty"
     });
+    setApiErrorConfigs({
+      openai: "success",
+      claude: "success",
+      gemini: "success",
+      deepseek: "success",
+      mistral: "success"
+    });
   };
 
   // API Key Typing Validation
@@ -330,8 +375,8 @@ export default function App() {
     const updated = { ...apiKeys, [provider]: value };
     setApiKeys(updated);
 
-    // Validation
-    const state = value === "" ? "empty" : MODEL_TEMPLATES[provider].regex.test(value) ? "valid" : "invalid";
+    // Prefix validation check
+    const state = checkKeyValidity(provider, value);
     setKeyValidationStates((prev) => ({ ...prev, [provider]: state }));
   };
 
@@ -402,27 +447,6 @@ export default function App() {
   const handleTriggerOrchestrate = (queryText: string) => {
     if (!queryText.trim()) return;
     setActiveErrorMessage(null);
-
-    // 1. KEY VALIDATION
-    // Determine which keys are active (selected workers + selected evaluator)
-    const requiredProviders = Array.from(new Set([...selectedWorkers, selectedEvaluator]));
-    const invalidProviders: string[] = [];
-
-    requiredProviders.forEach((prov) => {
-      const key = apiKeys[prov];
-      const isValid = MODEL_TEMPLATES[prov].regex.test(key);
-      if (!isValid) {
-        invalidProviders.push(MODEL_TEMPLATES[prov].name);
-      }
-    });
-
-    if (invalidProviders.length > 0) {
-      setActiveErrorMessage(
-        `Error: Invalid or missing API Key for: ${invalidProviders.join(", ")}. Please configure valid keys in the BYOK settings.`
-      );
-      setKeysModalOpen(true); // Proactively open modal to let them fix it
-      return;
-    }
 
     // 2. RETRIEVE OR INITIALIZE CHAT
     let currentChatId = activeChatId;
@@ -501,83 +525,193 @@ export default function App() {
     updatedChats[targetChatIndex].modelStats = statsCopy;
     setChats(updatedChats);
 
-    // 3. SIMULATED API DISPATCH & DUMMY CALCULATION
+    // 3. SIMULATED API DISPATCH WITH CONFIGURED ERROR OPTIONS
     setTimeout(() => {
-      // Simulate concurrent completion
       const updatedChatsDone = [...updatedChats];
       const activeChat = updatedChatsDone[targetChatIndex];
       const finalStats = { ...activeChat.modelStats };
 
-      // Calculate tokens & costs dynamically
+      const failedWorkers: { name: string; errorType: string }[] = [];
+      const keyErrorModels: string[] = [];
+
+      // Process Workers
       selectedWorkers.forEach((w) => {
         const config = MODEL_TEMPLATES[w];
-        const inputT = Math.floor(Math.random() * 150) + 250;  // 250 - 400 tokens
-        const outputT = Math.floor(Math.random() * 300) + 400; // 400 - 700 tokens
         
-        // Cost: (InputT * rate/1k) + (OutputT * rate/1k)
-        const costVal = (inputT * (config.inputCostPer1K / 1000)) + (outputT * (config.outputCostPer1K / 1000));
-        const latencyVal = parseFloat((Math.random() * 0.8 + 0.6).toFixed(2)); // 0.6s to 1.4s
+        // Runtime key check
+        const key = apiKeys[w];
+        const checkState = checkKeyValidity(w, key);
+        const isKeyError = checkState === "empty" || checkState === "invalid" || apiErrorConfigs[w] === "key_error";
+        
+        const errorState = isKeyError ? "key_error" : apiErrorConfigs[w]; // 'success' | 'key_error' | 'rate_limit' | 'timeout'
 
-        finalStats[w] = {
-          status: "done",
-          latency: latencyVal,
-          inputTokens: inputT,
-          outputTokens: outputT,
-          cost: parseFloat(costVal.toFixed(6)),
-          rawResponse: config.rawResponseTemplate
-        };
+        if (errorState === "success") {
+          const inputT = Math.floor(Math.random() * 150) + 250;  // 250 - 400 tokens
+          const outputT = Math.floor(Math.random() * 300) + 400; // 400 - 700 tokens
+          const costVal = (inputT * (config.inputCostPer1K / 1000)) + (outputT * (config.outputCostPer1K / 1000));
+          const latencyVal = parseFloat((Math.random() * 0.8 + 0.6).toFixed(2));
+
+          finalStats[w] = {
+            status: "done",
+            latency: latencyVal,
+            inputTokens: inputT,
+            outputTokens: outputT,
+            cost: parseFloat(costVal.toFixed(6)),
+            rawResponse: config.rawResponseTemplate
+          };
+        } else if (errorState === "key_error") {
+          keyErrorModels.push(config.name);
+          failedWorkers.push({ name: config.name, errorType: "Key Error (Invalid Credentials)" });
+          finalStats[w] = {
+            status: "key_error",
+            latency: 0.14,
+            inputTokens: 0,
+            outputTokens: 0,
+            cost: 0,
+            rawResponse: `API Call Error: [Key Error] Authentication rejected for ${config.name}. Invalid key or unauthorized token.`
+          };
+        } else if (errorState === "rate_limit") {
+          failedWorkers.push({ name: config.name, errorType: "Rate Limit Exceeded (HTTP 429)" });
+          finalStats[w] = {
+            status: "rate_limit",
+            latency: 0.22,
+            inputTokens: 0,
+            outputTokens: 0,
+            cost: 0,
+            rawResponse: `API Call Error: [Rate Limit] HTTP 429 Too Many Requests. Rate limit metrics exceeded for ${config.name}.`
+          };
+        } else {
+          failedWorkers.push({ name: config.name, errorType: "Network Gateway Timeout" });
+          finalStats[w] = {
+            status: "timeout",
+            latency: 1.80,
+            inputTokens: 0,
+            outputTokens: 0,
+            cost: 0,
+            rawResponse: `API Call Error: [Timeout Error] Connection expired for ${config.name}. Endpoint failed to respond in 1800ms.`
+          };
+        }
       });
 
-      // Calculate evaluator cost
+      // Process Evaluator
       const evalConfig = MODEL_TEMPLATES[selectedEvaluator];
-      const evalInputT = Math.floor(Math.random() * 100) + 150;
-      const evalOutputT = Math.floor(Math.random() * 200) + 300;
-      const evalCostVal = (evalInputT * (evalConfig.inputCostPer1K / 1000)) + (evalOutputT * (evalConfig.outputCostPer1K / 1000));
-      const evalLatencyVal = parseFloat((Math.random() * 0.5 + 0.4).toFixed(2));
+      
+      // Runtime key check for Evaluator
+      const evalKey = apiKeys[selectedEvaluator];
+      const evalCheckState = checkKeyValidity(selectedEvaluator, evalKey);
+      const isEvalKeyError = evalCheckState === "empty" || evalCheckState === "invalid" || apiErrorConfigs[selectedEvaluator] === "key_error";
+      
+      const evalErrorState = isEvalKeyError ? "key_error" : apiErrorConfigs[selectedEvaluator];
+      
+      let evaluatorFailed = false;
+      let evaluatorErrorText = "";
 
-      finalStats[selectedEvaluator] = {
-        status: "done",
-        latency: evalLatencyVal,
-        inputTokens: finalStats[selectedEvaluator]?.inputTokens 
-          ? finalStats[selectedEvaluator].inputTokens + evalInputT 
-          : evalInputT,
-        outputTokens: finalStats[selectedEvaluator]?.outputTokens 
-          ? finalStats[selectedEvaluator].outputTokens + evalOutputT 
-          : evalOutputT,
-        cost: parseFloat(((finalStats[selectedEvaluator]?.cost || 0) + evalCostVal).toFixed(6)),
-        rawResponse: evalConfig.rawResponseTemplate
-      };
+      if (evalErrorState === "success") {
+        const evalInputT = Math.floor(Math.random() * 100) + 150;
+        const evalOutputT = Math.floor(Math.random() * 200) + 300;
+        const evalCostVal = (evalInputT * (evalConfig.inputCostPer1K / 1000)) + (evalOutputT * (evalConfig.outputCostPer1K / 1000));
+        const evalLatencyVal = parseFloat((Math.random() * 0.5 + 0.4).toFixed(2));
 
-      // Synthesis Builder based on which evaluator was selected
-      const synthesisTitle = `### ${evalConfig.name} Evaluator Synthesized Response\n`;
-      const synthesisBody = `This report synthesizes information gathered concurrently from **${selectedWorkers.map(id => MODEL_TEMPLATES[id].name).join(", ")}** workers.
+        finalStats[selectedEvaluator] = {
+          status: "done",
+          latency: evalLatencyVal,
+          inputTokens: finalStats[selectedEvaluator]?.inputTokens 
+            ? finalStats[selectedEvaluator].inputTokens + evalInputT 
+            : evalInputT,
+          outputTokens: finalStats[selectedEvaluator]?.outputTokens 
+            ? finalStats[selectedEvaluator].outputTokens + evalOutputT 
+            : evalOutputT,
+          cost: parseFloat(((finalStats[selectedEvaluator]?.cost || 0) + evalCostVal).toFixed(6)),
+          rawResponse: evalConfig.rawResponseTemplate
+        };
+      } else {
+        evaluatorFailed = true;
+        if (evalErrorState === "key_error") {
+          keyErrorModels.push(evalConfig.name);
+        }
+        evaluatorErrorText = evalErrorState === "key_error" 
+          ? `Key Error (Invalid Credentials) on ${evalConfig.name}` 
+          : evalErrorState === "rate_limit" 
+          ? `Rate Limit Exceeded (HTTP 429) on ${evalConfig.name}` 
+          : `Gateway Connection Timeout on ${evalConfig.name}`;
 
-#### 1. Consolidation Matrix
-The sorting profiles show MergeSort stability matches key requirements. Cache optimization favors QuickSort for memory arrays.
+        finalStats[selectedEvaluator] = {
+          status: evalErrorState,
+          latency: 0.18,
+          inputTokens: 0,
+          outputTokens: 0,
+          cost: 0,
+          rawResponse: `API Evaluator Error: [${evalErrorState.toUpperCase()}] Model evaluation failed.`
+        };
+      }
 
-#### 2. Model Specific Specialties Integrated
-${selectedWorkers.map(id => `* **${MODEL_TEMPLATES[id].name}**: ${MODEL_TEMPLATES[id].strength}`).join("\n")}
+      // Compile assistant synthesis report text
+      let synthesisContent = "";
 
-#### 3. Recommended Path
-For primitive memory architectures, deploy QuickSort (median-of-three pivot to avoid worst cases). If records have metadata components, deploy MergeSort to preserve stability.`;
+      if (evaluatorFailed) {
+        synthesisContent = `### Orchestrator Evaluation Failure
+
+⚠️ **The synthesis step aborted because the Evaluator Model (${evalConfig.name}) encountered a critical API error:**
+> **${evaluatorErrorText}**
+
+Please resolve the credentials or connection configuration in the Settings panel to enable synthesized routing output. All worker outputs that resolved are available for inspection in the metrics inspector panel.`;
+      } else {
+        const healthyWorkers = selectedWorkers.filter(w => {
+          const key = apiKeys[w];
+          const checkState = checkKeyValidity(w, key);
+          const isKeyError = checkState === "empty" || checkState === "invalid" || apiErrorConfigs[w] === "key_error";
+          return !isKeyError && apiErrorConfigs[w] === "success";
+        });
+
+        const warningsSection = failedWorkers.length > 0
+          ? `> [!WARNING]
+> **Orchestrator degraded state active. The following workers failed runtime execution:**
+${failedWorkers.map(fw => `> * **${fw.name}**: ${fw.errorType}`).join("\n")}
+> 
+> *Remaining active models resolved correctly. Synthesis incorporates partial metadata.*
+
+---`
+          : "";
+
+        synthesisContent = `### ${evalConfig.name} Evaluator Synthesized Response
+
+${warningsSection}
+
+This report consolidates response streams gathered concurrently from: **${healthyWorkers.map(id => MODEL_TEMPLATES[id].name).join(", ")}** workers.
+
+#### 1. Synthesis Insights
+Based on healthy data streams, MergeSort guarantees strict bounds for large-scale operations. QuickSort is recommended for in-memory stack arrays where stable alignment is not required.
+
+#### 2. Models Specializations Integrated
+${healthyWorkers.map(id => `* **${MODEL_TEMPLATES[id].name}**: ${MODEL_TEMPLATES[id].strength}`).join("\n")}
+
+#### 3. Execution recommendation
+Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints. Choose MergeSort if you require stable sorting sequences across composite database indices.`;
+      }
 
       const assistantMessage: Message = {
         role: "assistant",
-        content: synthesisTitle + synthesisBody
+        content: synthesisContent
       };
 
       activeChat.messages = [...activeChat.messages, assistantMessage];
       activeChat.modelStats = finalStats;
 
+      if (keyErrorModels.length > 0) {
+        setActiveErrorMessage(`Key Error: Authentication failed for ${keyErrorModels.join(", ")}. Please configure valid keys starting with 'sk' ('AIza' for Gemini).`);
+      } else {
+        setActiveErrorMessage(null);
+      }
+
       setChats(updatedChatsDone);
       setPipelineState("completed");
-      saveStateToStorage(updatedChatsDone, apiKeys);
+      saveStateToStorage(updatedChatsDone, apiKeys, nextChatCounter, apiErrorConfigs);
     }, 2200);
   };
 
   // ==================== CALCULATION & SELECTORS ====================
 
-  // Select active chat object
+  // Active chat object
   const activeChat = chats.find((c) => c.id === activeChatId) || null;
 
   // Calculate Cumulative Total Cost for all chats in history
@@ -588,8 +722,9 @@ For primitive memory architectures, deploy QuickSort (median-of-three pivot to a
     }, 0);
   };
 
-  // Currently visible right panel cards
-  // Users want to show ONLY the cards of selected worker models and the evaluator model
+  const totalUserCost = calculateTotalUserCost();
+
+  // Filtered right card list (Only showing selected workers & evaluator)
   const activeRightSideCardIds = Array.from(new Set([...selectedWorkers, selectedEvaluator]));
 
   // Auto-title settings config text
@@ -784,7 +919,7 @@ For primitive memory architectures, deploy QuickSort (median-of-three pivot to a
           )}
         </div>
 
-        {/* Global Settings & Auto-Title configuration drawer trigger */}
+        {/* Global Settings Trigger */}
         <div className="p-3 border-t border-zinc-800 bg-[#0a0a0c]">
           <button 
             onClick={() => setKeysModalOpen(true)}
@@ -792,12 +927,12 @@ For primitive memory architectures, deploy QuickSort (median-of-three pivot to a
           >
             <div className="flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4 text-violet-400">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.43l-1.003.828c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.43l1.004-.827c.292-.24.437-.613.43-.991a6.936 6.936 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.645-.869L9.594 3.94Z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.43l-1.003.828c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.992a7.723 7.723 0 0 1 0-.255c-.008-.378-.137-.75-.43-.991l1.004.827c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.43l1.004-.827c.292-.24.437-.613.43-.991a6.936 6.936 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.645-.869L9.594 3.94Z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
               </svg>
               <div className="text-left">
                 <p className="text-xs font-semibold text-zinc-300">Settings & Keys</p>
-                <p className="text-[9px] text-zinc-500 font-mono truncate max-w-[130px]">Workers, Eval, Titles</p>
+                <p className="text-[9px] text-zinc-500 font-mono">Workers, Eval, Failures</p>
               </div>
             </div>
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-3.5 h-3.5 text-zinc-500">
@@ -844,7 +979,7 @@ For primitive memory architectures, deploy QuickSort (median-of-three pivot to a
           </div>
 
           <div className="flex items-center gap-3">
-            {/* API Key Modal Shortcut Indicator */}
+            {/* API Settings Button */}
             <button
               onClick={() => setKeysModalOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-900 text-xs text-zinc-400 hover:text-white transition"
@@ -855,10 +990,10 @@ For primitive memory architectures, deploy QuickSort (median-of-three pivot to a
               <span className="hidden sm:inline">Settings</span>
             </button>
 
-            {/* Metrics Toggle for Mobile/Tablet */}
+            {/* Metrics Toggle for Mobile */}
             <button 
               onClick={() => setRightPanelOpen(!rightPanelOpen)}
-              className="text-zinc-400 hover:text-white p-2 rounded-xl hover:bg-zinc-900 transition flex items-center gap-2 border border-zinc-800 bg-zinc-900/50"
+              className="text-zinc-400 hover:text-white p-2 rounded-xl hover:bg-zinc-900 transition flex items-center gap-2 border border-zinc-800 bg-zinc-900/50 animate-pulse"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-5 h-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z" />
@@ -869,7 +1004,7 @@ For primitive memory architectures, deploy QuickSort (median-of-three pivot to a
           </div>
         </header>
 
-        {/* Dynamic Global Key Validation Error Banner */}
+        {/* Global Key Validation Error Banner */}
         {activeErrorMessage && (
           <div className="bg-red-500/10 border-b border-red-500/30 px-6 py-3 text-xs text-red-400 font-semibold flex items-center gap-2.5">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4.5 h-4.5 text-red-500">
@@ -879,16 +1014,16 @@ For primitive memory architectures, deploy QuickSort (median-of-three pivot to a
           </div>
         )}
 
-        {/* Chat / Simulation Area */}
+        {/* Chat Area with Dummy Historical Database Message Load Trigger */}
         <div 
           ref={chatContainerRef}
           className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 scrollbar-thin"
         >
           {!activeChat || activeChat.messages.length === 0 ? (
             /* ==================== IDLE STATE: LANDING LAYOUT ==================== */
-            <div className="max-w-xl mx-auto py-16 space-y-10 text-center">
+            <div className="max-w-xl mx-auto py-12 space-y-8 text-center">
               
-              {/* Main Landing Header */}
+              {/* Landing Header */}
               <div className="space-y-4">
                 <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
                   Consolidated AI Synthesizer<br />
@@ -902,8 +1037,48 @@ For primitive memory architectures, deploy QuickSort (median-of-three pivot to a
               </div>
 
               {/* Status information tags */}
-              <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-4 text-left max-w-md mx-auto space-y-2.5">
-                <p className="text-xs font-bold text-violet-400 uppercase tracking-wider">Current Pipeline Configuration</p>
+              <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-4 text-left max-w-md mx-auto space-y-2.5 shadow-lg">
+                <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+                  <p className="text-xs font-bold text-violet-400 uppercase tracking-wider">Pipeline Configurations</p>
+                  <button 
+                    onClick={() => {
+                      // Load dummy historical DB messages to demonstrate persistence
+                      const initialStats: Record<string, any> = {};
+                      Object.keys(MODEL_TEMPLATES).forEach((k) => {
+                        initialStats[k] = {
+                          latency: 1.25,
+                          inputTokens: 320,
+                          outputTokens: 490,
+                          cost: 0.0031,
+                          status: "done",
+                          rawResponse: MODEL_TEMPLATES[k].rawResponseTemplate
+                        };
+                      });
+                      
+                      const demoChat: Chat = {
+                        id: `chat_demo_${Date.now()}`,
+                        title: "Demo DB: Sorting Benchmarks",
+                        messages: [
+                          { role: "user", content: "Compare sorting strategies and write an optimized quicksort in Python." },
+                          { 
+                            role: "assistant", 
+                            content: `### Claude 3.5 Sonnet Synthesized Response\nConsolidated analysis from GPT-4o, Claude, and Mistral:\n\n* **QuickSort**: Best for cache efficiency. $O(n \\log n)$ average complexity.\n* **MergeSort**: Stable, guaranteed performance limits.\n\n\`\`\`python\ndef quicksort(arr):\n    if len(arr) <= 1: return arr\n    pivot = arr[len(arr)//2]\n    return quicksort([x for x in arr if x < pivot]) + [x for x in arr if x == pivot] + quicksort([x for x in arr if x > pivot])\n\`\`\``
+                          }
+                        ],
+                        modelStats: initialStats
+                      };
+
+                      const newChats = [demoChat, ...chats];
+                      setChats(newChats);
+                      setActiveChatId(demoChat.id);
+                      setPipelineState("completed");
+                      saveStateToStorage(newChats, apiKeys);
+                    }}
+                    className="text-[9px] bg-violet-600 hover:bg-violet-500 text-white font-mono py-1 px-2.5 rounded-lg transition"
+                  >
+                    Load Historical DB Chats
+                  </button>
+                </div>
                 <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-zinc-400">
                   <div>Workers Selectable: <span className="text-zinc-200">{numWorkers} Limit</span></div>
                   <div>Active Workers: <span className="text-zinc-200">{selectedWorkers.map(id => MODEL_TEMPLATES[id]?.name).join(", ")}</span></div>
@@ -975,14 +1150,13 @@ For primitive memory architectures, deploy QuickSort (median-of-three pivot to a
                         {msg.content.split("```").map((chunk, idx) => {
                           const isCode = idx % 2 === 1;
                           if (isCode) {
-                            // Extract language
                             const lines = chunk.split("\n");
                             const lang = lines[0] || "python";
                             const codeContent = lines.slice(1).join("\n");
                             return (
                               <div key={idx} className="my-3 rounded-lg overflow-hidden border border-zinc-800 bg-[#050507]">
                                 <div className="flex items-center justify-between px-3 py-1.5 bg-zinc-900/60 text-[10px] text-zinc-500 font-mono border-b border-zinc-800">
-                                  <span>{lang} code snippet</span>
+                                  <span>{lang} code block</span>
                                   <button 
                                     onClick={() => {
                                       navigator.clipboard.writeText(codeContent.trim());
@@ -1115,7 +1289,7 @@ For primitive memory architectures, deploy QuickSort (median-of-three pivot to a
             <div className="p-2 rounded bg-zinc-900/60 border border-zinc-800/80">
               <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Total User Cost</p>
               <p className="text-sm font-bold text-violet-400 font-mono mt-0.5">
-                ${calculateTotalUserCost().toFixed(5)}
+                {totalUserCost ? `$${totalUserCost.toFixed(5)}` : "$0.00000"}
               </p>
             </div>
           </div>
@@ -1130,6 +1304,9 @@ For primitive memory architectures, deploy QuickSort (median-of-three pivot to a
               const isWorker = selectedWorkers.includes(modelId);
               const isEvaluator = selectedEvaluator === modelId;
               const isSelected = selectedInspectorModel === modelId;
+
+              // Check model status (especially configured API simulation failure flags)
+              const currentStatus = stats ? stats.status : "idle";
 
               return (
                 <div 
@@ -1160,6 +1337,40 @@ For primitive memory architectures, deploy QuickSort (median-of-three pivot to a
                         </span>
                       )}
                     </div>
+                  </div>
+
+                  {/* Status Indicator */}
+                  <div className="mb-2">
+                    {currentStatus === "running" && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-violet-950/40 border border-violet-500/30 text-violet-400 font-bold uppercase font-mono animate-pulse">
+                        Running
+                      </span>
+                    )}
+                    {currentStatus === "done" && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 font-bold uppercase font-mono">
+                        Success
+                      </span>
+                    )}
+                    {currentStatus === "key_error" && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-950/40 border border-red-500/30 text-red-400 font-bold uppercase font-mono">
+                        Key Error (401)
+                      </span>
+                    )}
+                    {currentStatus === "rate_limit" && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-950/40 border border-amber-500/30 text-amber-400 font-bold uppercase font-mono">
+                        Rate Limit (429)
+                      </span>
+                    )}
+                    {currentStatus === "timeout" && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-950/40 border border-indigo-500/30 text-indigo-400 font-bold uppercase font-mono">
+                        Timeout
+                      </span>
+                    )}
+                    {currentStatus === "idle" && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-500 font-mono">
+                        Idle
+                      </span>
+                    )}
                   </div>
 
                   {/* Token usage per chat & cost subgrid */}
@@ -1242,7 +1453,7 @@ For primitive memory architectures, deploy QuickSort (median-of-three pivot to a
                 <div className="p-1.5 rounded-lg bg-violet-500/10 text-violet-400">
                   ⚙️
                 </div>
-                <h3 className="text-base font-bold text-white">ApexRouter Orchestration Settings</h3>
+                <h3 className="text-base font-bold text-white">ApexRouter Configurations</h3>
               </div>
               <button 
                 onClick={() => setKeysModalOpen(false)}
@@ -1254,11 +1465,11 @@ For primitive memory architectures, deploy QuickSort (median-of-three pivot to a
               </button>
             </div>
 
-            {/* BYOK KEY CONFIG SECTION WITH REAL-TIME REGEX VALIDATION */}
+            {/* BYOK KEY CONFIG SECTION WITH SIMPLIFIED PREFIX VALIDATION */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-violet-400 uppercase tracking-wider">1. API Keys (BYOK Encrypted Storage)</h4>
-                <span className="text-[9px] text-zinc-500 font-mono">Real-time Regex Checks</span>
+                <h4 className="text-xs font-bold text-violet-400 uppercase tracking-wider">1. API Credentials (BYOK)</h4>
+                <span className="text-[9px] text-zinc-500 font-mono">Format Verification</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
@@ -1270,13 +1481,13 @@ For primitive memory architectures, deploy QuickSort (median-of-three pivot to a
                       <div className="flex justify-between items-center">
                         <label className="text-[11px] font-semibold text-zinc-400">{m.name} Key</label>
                         {state === "valid" && (
-                          <span className="text-[9px] font-mono text-emerald-400 font-bold">✓ Valid</span>
+                          <span className="text-[9px] font-mono text-emerald-400 font-bold">✓ Valid Prefix</span>
                         )}
                         {state === "invalid" && (
-                          <span className="text-[9px] font-mono text-red-400 font-bold">✗ Invalid format</span>
+                          <span className="text-[9px] font-mono text-red-400 font-bold">✗ Invalid Prefix</span>
                         )}
                         {state === "empty" && (
-                          <span className="text-[9px] font-mono text-zinc-600">Missing Key</span>
+                          <span className="text-[9px] font-mono text-zinc-650">Empty</span>
                         )}
                       </div>
                       <div className={`flex items-center rounded-lg border p-2 bg-zinc-950/60 ${
@@ -1296,11 +1507,44 @@ For primitive memory architectures, deploy QuickSort (median-of-three pivot to a
               </div>
             </div>
 
+            {/* API SIMULATOR ERROR CONFIGURATION SECTION */}
+            <div className="space-y-4 pt-4 border-t border-zinc-800/80 text-left">
+              <div className="flex justify-between items-center">
+                <h4 className="text-xs font-bold text-violet-400 uppercase tracking-wider">2. API Call Error Simulator</h4>
+                <span className="text-[9px] text-zinc-500 font-mono">Configure runtime response states</span>
+              </div>
+
+              <div className="space-y-2.5 bg-zinc-950/35 border border-zinc-800/60 p-3 rounded-xl">
+                {Object.keys(MODEL_TEMPLATES).map((id) => {
+                  const m = MODEL_TEMPLATES[id];
+                  return (
+                    <div key={id} className="flex items-center justify-between gap-3 text-xs">
+                      <span className="font-semibold text-zinc-300">{m.name} API Call State:</span>
+                      <select
+                        value={apiErrorConfigs[id]}
+                        onChange={(e) => {
+                          const updated = { ...apiErrorConfigs, [id]: e.target.value as any };
+                          setApiErrorConfigs(updated);
+                          saveStateToStorage(chats, apiKeys, nextChatCounter, updated);
+                        }}
+                        className="bg-zinc-900 border border-zinc-800 rounded px-2.5 py-1 text-[11px] text-zinc-300 outline-none"
+                      >
+                        <option value="success">Success (Healthy Call)</option>
+                        <option value="key_error">Authentication Key Error (401)</option>
+                        <option value="rate_limit">Rate Limit Exceeded (429)</option>
+                        <option value="timeout">Gateway Network Timeout</option>
+                      </select>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* WORKERS CONFIG SECTION */}
             <div className="space-y-4 pt-4 border-t border-zinc-800/80 text-left">
               
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-violet-400 uppercase tracking-wider">2. Worker Pipeline Routing</h4>
+                <h4 className="text-xs font-bold text-violet-400 uppercase tracking-wider">3. Worker Pipeline Routing</h4>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-zinc-400 font-semibold">Max concurrent workers:</span>
                   <select 
@@ -1324,7 +1568,7 @@ For primitive memory architectures, deploy QuickSort (median-of-three pivot to a
 
               {/* Workers Grid Selection */}
               <div className="space-y-1">
-                <p className="text-[10px] text-zinc-500 font-mono mb-2">Select up to {numWorkers} active workers (marked with green checkmarks):</p>
+                <p className="text-[10px] text-zinc-500 font-mono mb-2">Select active workers (marked with green tick):</p>
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                   {Object.keys(MODEL_TEMPLATES).map((id) => {
                     const config = MODEL_TEMPLATES[id];
@@ -1350,7 +1594,7 @@ For primitive memory architectures, deploy QuickSort (median-of-three pivot to a
               {/* Evaluator Configuration Selector */}
               <div className="space-y-1.5 pt-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-[11px] font-semibold text-zinc-400">3. Evaluator Model (Synthesizer Brain - marked with red checkmark):</p>
+                  <p className="text-[11px] font-semibold text-zinc-400">Evaluator Model (marked with red tick):</p>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                   {Object.keys(MODEL_TEMPLATES).map((id) => {
@@ -1377,7 +1621,7 @@ For primitive memory architectures, deploy QuickSort (median-of-three pivot to a
               {/* Auto-Title Model Settings */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3">
                 <div className="text-left">
-                  <p className="text-[11px] font-semibold text-zinc-400">4. Auto-Title Thread Configuration</p>
+                  <p className="text-[11px] font-semibold text-zinc-400">Auto-Title Thread Configuration</p>
                   <p className="text-[9px] text-zinc-500 font-mono">Model used to auto-name sidebar threads</p>
                 </div>
                 <select 
@@ -1404,7 +1648,7 @@ For primitive memory architectures, deploy QuickSort (median-of-three pivot to a
               <button
                 onClick={() => {
                   setKeysModalOpen(false);
-                  saveStateToStorage(chats, apiKeys);
+                  saveStateToStorage(chats, apiKeys, nextChatCounter, apiErrorConfigs);
                   alert("Settings successfully written to storage!");
                 }}
                 className="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-md shadow-violet-500/20 transition duration-200"
