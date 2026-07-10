@@ -919,7 +919,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
           )}
         </div>
 
-        {/* Global Settings Trigger */}
+        {/* BYOK Settings Trigger */}
         <div className="p-3 border-t border-border-subtle bg-bg-surface">
           <button 
             onClick={() => setKeysModalOpen(true)}
@@ -939,19 +939,6 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
               <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
             </svg>
           </button>
-        </div>
-
-        {/* Database Status Panel */}
-        <div className="p-3 border-t border-border-subtle bg-bg-surface">
-          <div className="flex items-center justify-between text-[11px]">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-status-success animate-pulse"></span>
-              <span className="text-text-secondary font-semibold">PostgreSQL Database Sync</span>
-            </div>
-          </div>
-          <p className="text-[9px] text-text-tertiary font-mono mt-1">
-            Status: {user ? "Authenticated (Synced)" : "Guest Session (Local storage)"}
-          </p>
         </div>
       </aside>
 
