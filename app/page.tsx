@@ -24,10 +24,10 @@ const MODEL_TEMPLATES: Record<string, ModelConfig> = {
     id: "openai",
     name: "GPT-4o",
     provider: "OpenAI",
-    avatarColor: "bg-emerald-500",
-    borderColor: "border-emerald-500/30 hover:border-emerald-500/60",
-    textColor: "text-emerald-400",
-    accentBg: "bg-emerald-500/10",
+    avatarColor: "bg-model-openai",
+    borderColor: "border-model-openai/30 hover:border-model-openai/60",
+    textColor: "text-model-openai",
+    accentBg: "bg-model-openai/10",
     inputCostPer1K: 0.0025, // $2.50 per 1M tokens
     outputCostPer1K: 0.0100, // $10.00 per 1M tokens
     strength: "Precise coding & highly optimized execution syntax.",
@@ -47,10 +47,10 @@ def quicksort(arr):
     id: "claude",
     name: "Claude 3.5 Sonnet",
     provider: "Anthropic",
-    avatarColor: "bg-orange-500",
-    borderColor: "border-orange-500/30 hover:border-orange-500/60",
-    textColor: "text-orange-400",
-    accentBg: "bg-orange-500/10",
+    avatarColor: "bg-model-claude",
+    borderColor: "border-model-claude/30 hover:border-model-claude/60",
+    textColor: "text-model-claude",
+    accentBg: "bg-model-claude/10",
     inputCostPer1K: 0.0030, // $3.00 per 1M tokens
     outputCostPer1K: 0.0150, // $15.00 per 1M tokens
     strength: "Architectural reasoning, edge case handling, and complexity bounds.",
@@ -71,10 +71,10 @@ def mergesort(arr):
     id: "gemini",
     name: "Gemini 1.5 Pro",
     provider: "Google",
-    avatarColor: "bg-blue-500",
-    borderColor: "border-blue-500/30 hover:border-blue-500/60",
-    textColor: "text-blue-400",
-    accentBg: "bg-blue-500/10",
+    avatarColor: "bg-model-gemini",
+    borderColor: "border-model-gemini/30 hover:border-model-gemini/60",
+    textColor: "text-model-gemini",
+    accentBg: "bg-model-gemini/10",
     inputCostPer1K: 0.00125, // $1.25 per 1M tokens
     outputCostPer1K: 0.00375, // $3.75 per 1M tokens
     strength: "Explanatory analogies, context windows, and structured flows.",
@@ -88,10 +88,10 @@ Think of sorting like sorting a library book shelf:
     id: "deepseek",
     name: "DeepSeek V3",
     provider: "DeepSeek",
-    avatarColor: "bg-sky-500",
-    borderColor: "border-sky-500/30 hover:border-sky-500/60",
-    textColor: "text-sky-400",
-    accentBg: "bg-sky-500/10",
+    avatarColor: "bg-model-deepseek",
+    borderColor: "border-model-deepseek/30 hover:border-model-deepseek/60",
+    textColor: "text-model-deepseek",
+    accentBg: "bg-model-deepseek/10",
     inputCostPer1K: 0.00014, // $0.14 per 1M tokens
     outputCostPer1K: 0.00028, // $0.28 per 1M tokens
     strength: "Extremely cost-effective mathematical reasoning and clean logic.",
@@ -110,10 +110,10 @@ def median_of_three(a, b, c):
     id: "mistral",
     name: "Mistral Large",
     provider: "Mistral",
-    avatarColor: "bg-red-500",
-    borderColor: "border-red-500/30 hover:border-red-500/60",
-    textColor: "text-red-400",
-    accentBg: "bg-red-500/10",
+    avatarColor: "bg-model-mistral",
+    borderColor: "border-model-mistral/30 hover:border-model-mistral/60",
+    textColor: "text-model-mistral",
+    accentBg: "bg-model-mistral/10",
     inputCostPer1K: 0.0020, // $2.00 per 1M tokens
     outputCostPer1K: 0.0060, // $6.00 per 1M tokens
     strength: "Systems design, European localization, and low overhead operations.",
@@ -731,7 +731,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
   const currentAutoTitleModelName = MODEL_TEMPLATES[autoTitleModel]?.name || "Mistral Large";
 
   return (
-    <div className="flex h-screen w-full bg-[#08080a] text-zinc-200 overflow-hidden font-sans antialiased">
+    <div className="flex h-screen w-full bg-bg-base text-text-secondary overflow-hidden font-sans antialiased">
       
       {/* ==================== LEFT SIDEBAR ==================== */}
       {/* Backdrop for mobile */}
@@ -743,28 +743,28 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
       )}
 
       <aside 
-        className={`fixed inset-y-0 left-0 z-40 flex flex-col w-72 border-r border-zinc-800/80 bg-[#0c0c0e] transition-transform duration-300 transform lg:translate-x-0 lg:static shrink-0 overflow-hidden ${
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col w-72 border-r border-border-subtle bg-bg-surface transition-transform duration-300 transform lg:translate-x-0 lg:static shrink-0 overflow-hidden ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         {/* Brand & Auth Area */}
-        <div className="flex flex-col border-b border-zinc-800/80 bg-[#09090b] p-4 gap-4">
+        <div className="flex flex-col border-b border-border-subtle bg-bg-surface p-4 gap-4">
           
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-600 text-white font-black shadow-md shadow-violet-500/20">
+            <div className="flex items-center gap-2">
+              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-gradient-to-tr from-accent-primary to-accent-secondary text-white font-black shadow-md shadow-accent-primary/20">
                 Ω
               </div>
               <div className="flex flex-col">
-                <span className="font-bold text-sm tracking-tight text-white leading-none">ApexRouter</span>
-                <span className="text-[10px] text-zinc-500 font-mono mt-0.5">Orchestrator v1.2</span>
+                <span className="font-bold text-sm tracking-tight text-text-primary leading-none">ApexRouter</span>
+                <span className="text-[10px] text-text-tertiary font-mono mt-0.5">Orchestrator v1.2</span>
               </div>
             </div>
 
             {/* Mobile Close Button */}
             <button 
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-1 text-zinc-500 hover:text-white"
+              className="lg:hidden p-1 text-text-tertiary hover:text-text-primary"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -775,19 +775,19 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
           {/* User Sign-In Block */}
           <div className="pt-1.5">
             {user ? (
-              <div className="flex items-center justify-between bg-zinc-900/50 border border-zinc-800 p-2.5 rounded-xl">
+              <div className="flex items-center justify-between bg-bg-surface-raised border border-border-subtle p-3 rounded-lg">
                 <div className="flex items-center gap-2">
-                  <div className="h-7 w-7 rounded-full bg-violet-600/30 border border-violet-500/50 flex items-center justify-center text-xs font-bold text-violet-300">
+                  <div className="h-7 w-7 rounded-full bg-accent-primary/20 border border-accent-primary/40 flex items-center justify-center text-xs font-bold text-accent-primary">
                     MA
                   </div>
                   <div className="text-left">
-                    <p className="text-xs font-bold text-zinc-200">{user.name}</p>
-                    <p className="text-[9px] text-zinc-500 font-mono truncate max-w-[120px]">{user.email}</p>
+                    <p className="text-xs font-bold text-text-primary">{user.name}</p>
+                    <p className="text-[9px] text-text-tertiary font-mono truncate max-w-[120px]">{user.email}</p>
                   </div>
                 </div>
                 <button 
                   onClick={handleSignOut}
-                  className="text-[10px] text-zinc-500 hover:text-red-400 font-semibold px-2 py-1 rounded hover:bg-red-500/10 transition"
+                  className="text-[10px] text-text-tertiary hover:text-status-error font-semibold px-2 py-1 rounded-md hover:bg-status-error-bg transition"
                 >
                   Logout
                 </button>
@@ -796,7 +796,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
               <div className="space-y-2">
                 <button 
                   onClick={handleGoogleLogin}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 py-2 px-3 text-xs font-bold text-zinc-300 hover:text-white transition duration-200"
+                  className="flex w-full items-center justify-center gap-2 rounded-md bg-bg-surface-raised hover:bg-bg-surface-raised border border-border-subtle hover:border-border-strong py-2 px-3 text-xs font-bold text-text-secondary hover:text-text-primary transition duration-200"
                 >
                   <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -806,9 +806,9 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                   </svg>
                   <span>Sign in with Google</span>
                 </button>
-                <div className="flex justify-between items-center px-1 text-[9px] text-zinc-500 font-mono">
+                <div className="flex justify-between items-center px-1 text-[9px] text-text-tertiary font-mono">
                   <span>Session: Guest Mode</span>
-                  <span className="text-amber-500/90 font-bold">Wipes on close</span>
+                  <span className="text-status-warning font-bold">Wipes on close</span>
                 </div>
               </div>
             )}
@@ -819,7 +819,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
         <div className="p-3">
           <button
             onClick={handleNewChat}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 hover:bg-violet-500 hover:shadow-violet-600/10 py-2.5 px-3 text-xs font-bold text-white transition-all duration-200"
+            className="flex w-full items-center justify-center gap-2 rounded-md bg-accent-primary hover:bg-accent-primary-hover hover:shadow-accent-primary/10 py-2 px-4 text-xs font-bold text-white transition-all duration-200"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
               <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
@@ -829,14 +829,14 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
         </div>
 
         {/* Chat List Scroll Container */}
-        <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1 scrollbar-thin">
+        <div className="flex-1 overflow-y-auto px-2 py-2 space-y-3 scrollbar-thin">
           <div className="flex items-center justify-between px-2 mb-2">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Conversations</span>
-            <span className="text-[10px] text-zinc-600 font-mono">({chats.length})</span>
+            <span className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">Conversations</span>
+            <span className="text-[10px] text-text-tertiary font-mono">({chats.length})</span>
           </div>
 
           {chats.length === 0 ? (
-            <div className="text-center py-8 px-4 text-xs text-zinc-600 italic">
+            <div className="text-center py-8 px-4 text-xs text-text-tertiary italic">
               No threads active.<br />Click New Conversation above.
             </div>
           ) : (
@@ -854,14 +854,14 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                       setActiveErrorMessage(null);
                     }
                   }}
-                  className={`group relative flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-left border cursor-pointer transition ${
+                  className={`group relative flex items-center justify-between w-full px-5 py-4 rounded-md text-left border cursor-pointer transition ${
                     isActive
-                      ? "bg-zinc-900 border-zinc-800 text-white font-semibold shadow-inner shadow-black/40"
-                      : "border-transparent hover:bg-zinc-900/30 text-zinc-400 hover:text-zinc-200"
+                      ? "bg-bg-surface-raised border-border-strong text-text-primary font-semibold shadow-inner shadow-black/40"
+                      : "border-transparent hover:bg-bg-surface-raised/40 text-text-secondary hover:text-text-primary"
                   }`}
                 >
-                  <div className="flex items-center gap-2.5 truncate flex-1 mr-6">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-3.5 h-3.5 text-zinc-500 shrink-0">
+                  <div className="flex items-center gap-3 truncate flex-1 mr-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-3.5 h-3.5 text-text-tertiary shrink-0">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a.598.598 0 0 1-.655-.077.598.598 0 0 1-.165-.63l.81-2.8a7.197 7.197 0 0 1-1.4-3.713C4 16.556 8.03 12.875 13 12.875c4.97 0 9 3.681 9 8.25Z" />
                     </svg>
 
@@ -877,7 +877,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                         }}
                         autoFocus
                         onClick={(e) => e.stopPropagation()}
-                        className="w-full bg-zinc-950 text-xs px-1.5 py-0.5 border border-violet-500 rounded text-white focus:outline-none"
+                        className="w-full bg-bg-base text-xs px-2 py-1 border border-accent-primary rounded-md text-text-primary focus:outline-none"
                       />
                     ) : (
                       <span className="text-xs truncate">{c.title}</span>
@@ -886,7 +886,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
 
                   {/* Actions Visible on Hover */}
                   {!isEditing && (
-                    <div className="absolute right-2.5 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute right-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       {/* Rename/Edit Button */}
                       <button
                         onClick={(e) => {
@@ -894,7 +894,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                           handleStartEditingTitle(c.id, c.title);
                         }}
                         title="Rename Thread"
-                        className="text-zinc-500 hover:text-white p-0.5 rounded hover:bg-zinc-800"
+                        className="text-text-tertiary hover:text-text-primary p-0.5 rounded-md hover:bg-bg-surface-raised"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3 h-3">
                           <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
@@ -905,7 +905,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                       <button
                         onClick={(e) => handleDeleteChat(c.id, e)}
                         title="Delete Thread"
-                        className="text-zinc-500 hover:text-red-400 p-0.5 rounded hover:bg-zinc-800"
+                        className="text-text-tertiary hover:text-status-error p-0.5 rounded-md hover:bg-bg-surface-raised"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3 h-3">
                           <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
@@ -920,51 +920,51 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
         </div>
 
         {/* Global Settings Trigger */}
-        <div className="p-3 border-t border-zinc-800 bg-[#0a0a0c]">
+        <div className="p-3 border-t border-border-subtle bg-bg-surface">
           <button 
             onClick={() => setKeysModalOpen(true)}
-            className="flex w-full items-center justify-between rounded-xl bg-zinc-900/50 border border-zinc-850 p-3 hover:border-violet-500/40 hover:bg-zinc-900 transition duration-200"
+            className="flex w-full items-center justify-between rounded-md bg-bg-surface border border-border-subtle p-3 hover:border-border-strong hover:bg-bg-surface-raised transition duration-200"
           >
             <div className="flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4 text-violet-400">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4 text-accent-primary">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.43l-1.003.828c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.992a7.723 7.723 0 0 1 0-.255c-.008-.378-.137-.75-.43-.991l1.004.827c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.43l1.004-.827c.292-.24.437-.613.43-.991a6.936 6.936 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.645-.869L9.594 3.94Z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
               </svg>
               <div className="text-left">
-                <p className="text-xs font-semibold text-zinc-300">Settings & Keys</p>
-                <p className="text-[9px] text-zinc-500 font-mono">Workers, Eval, Failures</p>
+                <p className="text-xs font-semibold text-text-primary">Settings & Keys</p>
+                <p className="text-[9px] text-text-tertiary font-mono">Workers, Eval, Failures</p>
               </div>
             </div>
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-3.5 h-3.5 text-zinc-500">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-3.5 h-3.5 text-text-tertiary">
               <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
             </svg>
           </button>
         </div>
 
         {/* Database Status Panel */}
-        <div className="p-3 border-t border-zinc-800/80 bg-[#09090b]">
+        <div className="p-3 border-t border-border-subtle bg-bg-surface">
           <div className="flex items-center justify-between text-[11px]">
             <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="text-zinc-400 font-semibold">PostgreSQL Database Sync</span>
+              <span className="h-2 w-2 rounded-full bg-status-success animate-pulse"></span>
+              <span className="text-text-secondary font-semibold">PostgreSQL Database Sync</span>
             </div>
           </div>
-          <p className="text-[9px] text-zinc-500 font-mono mt-1">
+          <p className="text-[9px] text-text-tertiary font-mono mt-1">
             Status: {user ? "Authenticated (Synced)" : "Guest Session (Local storage)"}
           </p>
         </div>
       </aside>
 
       {/* ==================== CENTER MAIN CONTAINER ==================== */}
-      <main className="flex flex-col flex-1 bg-[#08080a] relative overflow-hidden">
+      <main className="flex flex-col flex-1 bg-bg-base relative overflow-hidden">
         
         {/* Top Navbar */}
-        <header className="flex h-16 items-center justify-between px-4 sm:px-6 border-b border-zinc-800/80 bg-[#08080a]/80 backdrop-blur-md sticky top-0 z-30">
+        <header className="flex h-16 items-center justify-between px-4 sm:px-6 border-b border-border-subtle bg-bg-base/80 backdrop-blur-md sticky top-0 z-30">
           <div className="flex items-center gap-3">
             {/* Sidebar toggle for mobile */}
             <button 
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-900 transition"
+              className="lg:hidden text-text-secondary hover:text-text-primary p-1 rounded-md hover:bg-bg-surface-raised transition"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5.5 h-5.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
@@ -972,7 +972,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
             </button>
             
             <div className="flex items-center gap-2">
-              <span className="text-xs sm:text-sm font-semibold text-white">
+              <span className="text-xs sm:text-sm font-semibold text-text-primary">
                 {activeChat ? activeChat.title : "No Thread Active"}
               </span>
             </div>
@@ -982,9 +982,9 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
             {/* API Settings Button */}
             <button
               onClick={() => setKeysModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-900 text-xs text-zinc-400 hover:text-white transition"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border-subtle bg-bg-surface-raised hover:bg-bg-surface-raised hover:border-border-strong text-xs text-text-secondary hover:text-text-primary transition"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3.5 h-3.5 text-violet-400">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3.5 h-3.5 text-accent-primary">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a3 3 0 0 1-3 3m-12-6a3 3 0 0 1-3 3m12-3a3 3 0 0 1-3 3m-12 12a3 3 0 0 1-3-3m12 3a3 3 0 0 1-3-3" />
               </svg>
               <span className="hidden sm:inline">Settings</span>
@@ -993,7 +993,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
             {/* Metrics Toggle for Mobile */}
             <button 
               onClick={() => setRightPanelOpen(!rightPanelOpen)}
-              className="text-zinc-400 hover:text-white p-2 rounded-xl hover:bg-zinc-900 transition flex items-center gap-2 border border-zinc-800 bg-zinc-900/50 animate-pulse"
+              className="text-text-secondary hover:text-text-primary p-2 rounded-md hover:bg-bg-surface-raised transition flex items-center gap-2 border border-border-subtle bg-bg-surface-raised animate-pulse"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-5 h-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z" />
@@ -1006,8 +1006,8 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
 
         {/* Global Key Validation Error Banner */}
         {activeErrorMessage && (
-          <div className="bg-red-500/10 border-b border-red-500/30 px-6 py-3 text-xs text-red-400 font-semibold flex items-center gap-2.5">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4.5 h-4.5 text-red-500">
+          <div className="bg-status-error-bg border-b border-status-error/30 px-6 py-3 text-xs text-status-error font-semibold flex items-center gap-3">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4.5 h-4.5 text-status-error">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
             </svg>
             <span>{activeErrorMessage}</span>
@@ -1025,21 +1025,21 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
               
               {/* Landing Header */}
               <div className="space-y-4">
-                <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
+                <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-text-primary leading-tight">
                   Consolidated AI Synthesizer<br />
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-fuchsia-400 to-indigo-400">
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent-primary to-accent-secondary">
                     Dual Evaluation Gateway
                   </span>
                 </h1>
-                <p className="text-xs sm:text-sm text-zinc-400 max-w-md mx-auto leading-relaxed">
+                <p className="text-xs sm:text-sm text-text-secondary max-w-md mx-auto leading-relaxed">
                   Query worker models concurrently, synthesize responses through an evaluator model, and persist historical metrics in Drizzle Postgres.
                 </p>
               </div>
 
               {/* Status information tags */}
-              <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-4 text-left max-w-md mx-auto space-y-2.5 shadow-lg">
-                <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
-                  <p className="text-xs font-bold text-violet-400 uppercase tracking-wider">Pipeline Configurations</p>
+              <div className="bg-bg-surface border border-border-subtle rounded-lg p-5 text-left max-w-md mx-auto space-y-3 shadow-lg">
+                <div className="flex items-center justify-between border-b border-border-subtle pb-2">
+                  <p className="text-xs font-bold text-accent-secondary uppercase tracking-wider">Pipeline Configurations</p>
                   <button 
                     onClick={() => {
                       // Load dummy historical DB messages to demonstrate persistence
@@ -1074,43 +1074,43 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                       setPipelineState("completed");
                       saveStateToStorage(newChats, apiKeys);
                     }}
-                    className="text-[9px] bg-violet-600 hover:bg-violet-500 text-white font-mono py-1 px-2.5 rounded-lg transition"
+                    className="text-[9px] bg-accent-primary hover:bg-accent-primary-hover text-white font-mono py-1 px-3 rounded-md transition"
                   >
                     Load Historical DB Chats
                   </button>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-zinc-400">
-                  <div>Workers Selectable: <span className="text-zinc-200">{numWorkers} Limit</span></div>
-                  <div>Active Workers: <span className="text-zinc-200">{selectedWorkers.map(id => MODEL_TEMPLATES[id]?.name).join(", ")}</span></div>
-                  <div className="col-span-2">Evaluator Model: <span className="text-rose-400 font-bold">{MODEL_TEMPLATES[selectedEvaluator]?.name}</span></div>
-                  <div className="col-span-2">Auto-Title Model: <span className="text-zinc-200">{currentAutoTitleModelName}</span></div>
+                <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-text-secondary">
+                  <div>Workers Selectable: <span className="text-text-primary">{numWorkers} Limit</span></div>
+                  <div>Active Workers: <span className="text-text-primary">{selectedWorkers.map(id => MODEL_TEMPLATES[id]?.name).join(", ")}</span></div>
+                  <div className="col-span-2">Evaluator Model: <span className="text-accent-secondary font-bold">{MODEL_TEMPLATES[selectedEvaluator]?.name}</span></div>
+                  <div className="col-span-2">Auto-Title Model: <span className="text-text-primary">{currentAutoTitleModelName}</span></div>
                 </div>
               </div>
 
               {/* Clickable Quick-Start Prompts */}
               <div className="space-y-3 max-w-lg mx-auto text-left">
-                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider px-1">Selected Sample Prompts</p>
+                <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider px-1">Selected Sample Prompts</p>
                 
                 <button
                   onClick={() => handleTriggerOrchestrate("Compare the time complexity of QuickSort vs MergeSort with code examples.")}
-                  className="w-full text-left p-3.5 rounded-xl border border-zinc-800 bg-[#0c0c0f]/50 hover:bg-[#0c0c0f] hover:border-violet-500/40 transition duration-200 group"
+                  className="w-full text-left p-4 rounded-lg border border-border-subtle bg-bg-surface hover:bg-bg-surface-raised hover:border-border-strong transition duration-200 group"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs sm:text-sm text-zinc-300 font-medium group-hover:text-white">Compare the time complexity of QuickSort vs MergeSort with code examples.</span>
-                    <span className="text-xs text-violet-400 group-hover:translate-x-1 transition duration-200 font-bold">→</span>
+                    <span className="text-xs sm:text-sm text-text-secondary font-medium group-hover:text-text-primary">Compare the time complexity of QuickSort vs MergeSort with code examples.</span>
+                    <span className="text-xs text-accent-primary group-hover:translate-x-1 transition duration-200 font-bold">→</span>
                   </div>
-                  <p className="text-[10px] text-zinc-500 mt-1">Runs concurrent benchmark trace inside the workspace container.</p>
+                  <p className="text-[10px] text-text-tertiary mt-1">Runs concurrent benchmark trace inside the workspace container.</p>
                 </button>
 
                 <button
                   onClick={() => handleTriggerOrchestrate("Write a Next.js API route that encrypts BYOK credentials with AES-256.")}
-                  className="w-full text-left p-3.5 rounded-xl border border-zinc-800 bg-[#0c0c0f]/50 hover:bg-[#0c0c0f] hover:border-violet-500/40 transition duration-200 group"
+                  className="w-full text-left p-4 rounded-lg border border-border-subtle bg-bg-surface hover:bg-bg-surface-raised hover:border-border-strong transition duration-200 group"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs sm:text-sm text-zinc-300 font-medium group-hover:text-white">How do I securely encrypt credentials in Next.js using AES-256?</span>
-                    <span className="text-xs text-violet-400 group-hover:translate-x-1 transition duration-200 font-bold">→</span>
+                    <span className="text-xs sm:text-sm text-text-secondary font-medium group-hover:text-text-primary">How do I securely encrypt credentials in Next.js using AES-256?</span>
+                    <span className="text-xs text-accent-primary group-hover:translate-x-1 transition duration-200 font-bold">→</span>
                   </div>
-                  <p className="text-[10px] text-zinc-500 mt-1">Queries Mistral, OpenAI and Claude, then runs synthesis reports.</p>
+                  <p className="text-[10px] text-text-tertiary mt-1">Queries Mistral, OpenAI and Claude, then runs synthesis reports.</p>
                 </button>
               </div>
 
@@ -1124,28 +1124,28 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                 return (
                   <div 
                     key={index}
-                    className={`flex gap-4 p-4.5 rounded-2xl border transition-all ${
+                    className={`flex gap-4 p-5 rounded-lg border transition-all ${
                       isUser 
-                        ? "bg-zinc-900/30 border-zinc-850/80 justify-start"
-                        : "bg-[#0c0c0f]/50 border-zinc-800/60 leading-relaxed text-sm"
+                        ? "bg-bg-surface border-border-subtle justify-start"
+                        : "bg-bg-surface-raised border-border-subtle leading-relaxed text-sm"
                     }`}
                   >
                     {/* Role Avatar */}
-                    <div className={`h-8 w-8 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
+                    <div className={`h-8 w-8 rounded-md flex items-center justify-center font-bold text-xs shrink-0 ${
                       isUser 
-                        ? "bg-zinc-800 text-zinc-300 border border-zinc-700" 
-                        : "bg-violet-600/20 text-violet-400 border border-violet-500/30"
+                        ? "bg-bg-surface-raised text-text-secondary border border-border-subtle" 
+                        : "bg-accent-primary/20 text-accent-primary border border-accent-primary/30"
                     }`}>
                       {isUser ? "U" : "Ω"}
                     </div>
 
                     {/* Message Body */}
                     <div className="space-y-1.5 flex-1 min-w-0">
-                      <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">
+                      <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-wider">
                         {isUser ? "User Query" : `${MODEL_TEMPLATES[selectedEvaluator]?.name} Evaluator Synthesis`}
                       </p>
                       
-                      <div className="prose prose-invert max-w-none text-zinc-200 text-xs sm:text-sm whitespace-pre-wrap leading-relaxed">
+                      <div className="prose prose-invert max-w-none text-text-primary text-xs sm:text-sm whitespace-pre-wrap leading-relaxed">
                         {/* Custom markdown parsing for code blocks block formatting */}
                         {msg.content.split("```").map((chunk, idx) => {
                           const isCode = idx % 2 === 1;
@@ -1154,20 +1154,20 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                             const lang = lines[0] || "python";
                             const codeContent = lines.slice(1).join("\n");
                             return (
-                              <div key={idx} className="my-3 rounded-lg overflow-hidden border border-zinc-800 bg-[#050507]">
-                                <div className="flex items-center justify-between px-3 py-1.5 bg-zinc-900/60 text-[10px] text-zinc-500 font-mono border-b border-zinc-800">
+                              <div key={idx} className="my-3 rounded-lg overflow-hidden border border-border-subtle bg-bg-base/80">
+                                <div className="flex items-center justify-between px-3 py-1.5 bg-bg-surface-raised/60 text-[10px] text-text-tertiary font-mono border-b border-border-subtle">
                                   <span>{lang} code block</span>
                                   <button 
                                     onClick={() => {
                                       navigator.clipboard.writeText(codeContent.trim());
                                       alert("Code copied to clipboard!");
                                     }}
-                                    className="hover:text-white flex items-center gap-1"
+                                    className="hover:text-text-primary flex items-center gap-1"
                                   >
                                     Copy
                                   </button>
                                 </div>
-                                <pre className="p-3.5 overflow-x-auto text-[11px] font-mono leading-relaxed text-zinc-300">
+                                <pre className="p-4 overflow-x-auto text-[11px] font-mono leading-relaxed text-text-secondary">
                                   <code>{codeContent.trim()}</code>
                                 </pre>
                               </div>
@@ -1183,20 +1183,20 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
 
               {/* Running Loader state inside message container */}
               {pipelineState === "running" && (
-                <div className="flex gap-4 p-4.5 rounded-2xl border border-zinc-800/60 bg-[#0c0c0f]/20 animate-pulse">
-                  <div className="h-8 w-8 rounded-xl bg-violet-600/10 border border-violet-500/20 flex items-center justify-center shrink-0">
-                    <svg className="animate-spin h-4 w-4 text-violet-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <div className="flex gap-4 p-5 rounded-lg border border-border-subtle bg-bg-surface-raised/20 animate-pulse">
+                  <div className="h-8 w-8 rounded-md bg-accent-primary/10 border border-accent-primary/20 flex items-center justify-center shrink-0">
+                    <svg className="animate-spin h-4 w-4 text-accent-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                   </div>
                   <div className="space-y-2 flex-1">
-                    <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Orchestrator running...</p>
-                    <p className="text-xs text-zinc-400 font-medium">
+                    <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-wider">Orchestrator running...</p>
+                    <p className="text-xs text-text-secondary font-medium">
                       Querying workers ({selectedWorkers.map(id => MODEL_TEMPLATES[id]?.name).join(", ")}) concurrently. Synthesizing answers via {MODEL_TEMPLATES[selectedEvaluator]?.name}...
                     </p>
-                    <div className="h-1.5 w-48 bg-zinc-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-violet-500 rounded-full animate-infinite-progress" style={{ width: "60%" }}></div>
+                    <div className="h-1.5 w-48 bg-bg-surface rounded-full overflow-hidden">
+                      <div className="h-full bg-accent-primary rounded-full animate-infinite-progress" style={{ width: "60%" }}></div>
                     </div>
                   </div>
                 </div>
@@ -1211,22 +1211,22 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
         </div>
 
         {/* ==================== BOTTOM INPUT AREA ==================== */}
-        <footer className="p-4 border-t border-zinc-800/80 bg-[#08080a]">
+        <footer className="p-4 border-t border-border-subtle bg-bg-base">
           <div className="max-w-3xl mx-auto relative">
             
             {/* Input Bar */}
-            <div className="relative flex items-center rounded-xl border border-zinc-800 bg-[#0d0d10] focus-within:border-violet-500/60 focus-within:ring-1 focus-within:ring-violet-500/10 transition-all p-2 gap-2.5">
+            <div className="relative flex items-center rounded-lg border border-border-subtle bg-bg-surface focus-within:border-accent-primary focus-within:ring-1 focus-within:ring-accent-primary/10 transition-all p-2 gap-3">
               
               <button 
                 onClick={() => setKeysModalOpen(true)}
                 title="Configure Keys & Workers"
-                className="p-2 text-zinc-500 hover:text-violet-400 rounded-lg hover:bg-zinc-900 transition shrink-0"
+                className="p-2 text-text-tertiary hover:text-accent-primary rounded-md hover:bg-bg-surface-raised transition shrink-0"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                 </svg>
               </button>
-
+ 
               <input
                 type="text"
                 placeholder="Ask ApexRouter (e.g. Compare QuickSort vs MergeSort)..."
@@ -1238,19 +1238,19 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                   }
                 }}
                 disabled={pipelineState === "running"}
-                className="flex-1 bg-transparent text-xs sm:text-sm text-zinc-100 placeholder-zinc-500 outline-none disabled:text-zinc-500"
+                className="flex-1 bg-transparent text-xs sm:text-sm text-text-primary placeholder-text-tertiary outline-none disabled:text-text-tertiary"
               />
-
+ 
               <button
                 onClick={() => handleTriggerOrchestrate(searchQuery || "Compare the time complexity of QuickSort vs MergeSort with code examples.")}
                 disabled={pipelineState === "running" || !searchQuery.trim()}
-                className="h-9 px-4 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-violet-500/20 active:scale-95 transition-all disabled:opacity-40"
+                className="h-9 px-4 rounded-md bg-accent-primary hover:bg-accent-primary-hover text-white font-bold text-xs shadow-md shadow-accent-primary/20 active:scale-95 transition-all disabled:opacity-40"
               >
                 Orchestrate
               </button>
             </div>
             
-            <p className="text-center text-[10px] text-zinc-500 mt-2.5 font-mono">
+            <p className="text-center text-[10px] text-text-tertiary mt-3 font-mono">
               AES-256 encryption active • Drizzle ORM PostgreSQL persistence
             </p>
           </div>
@@ -1260,17 +1260,17 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
 
       {/* ==================== RIGHT INSPECTOR PANEL (ONLY SELECTED WORKERS & EVALUATOR) ==================== */}
       {rightPanelOpen && (
-        <aside className="fixed inset-y-0 right-0 z-40 lg:static w-80 border-l border-zinc-800 bg-[#0c0c0e] flex flex-col shrink-0 overflow-hidden shadow-2xl lg:shadow-none">
+        <aside className="fixed inset-y-0 right-0 z-40 lg:static w-80 border-l border-border-subtle bg-bg-surface flex flex-col shrink-0 overflow-hidden shadow-2xl lg:shadow-none">
           
           {/* Header */}
-          <div className="flex h-16 items-center justify-between px-4 border-b border-zinc-800 bg-[#09090b]">
+          <div className="flex h-16 items-center justify-between px-4 border-b border-border-subtle bg-bg-surface-raised">
             <div className="flex flex-col text-left">
-              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Metrics Inspector</span>
-              <span className="text-[9px] text-zinc-500 font-mono">Only selected worker/eval models</span>
+              <span className="text-[10px] font-bold text-text-primary uppercase tracking-wider">Metrics Inspector</span>
+              <span className="text-[9px] text-text-tertiary font-mono">Only selected worker/eval models</span>
             </div>
             <button 
               onClick={() => setRightPanelOpen(false)}
-              className="p-1 text-zinc-500 hover:text-white"
+              className="p-1 text-text-tertiary hover:text-text-primary"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -1279,23 +1279,23 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
           </div>
 
           {/* User Cumulative Total Cost & Active Chat cost */}
-          <div className="p-4 border-b border-zinc-800 bg-zinc-950/30 grid grid-cols-2 gap-2 text-center">
-            <div className="p-2 rounded bg-zinc-900/60 border border-zinc-800/80">
-              <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Active Chat Cost</p>
-              <p className="text-sm font-bold text-emerald-400 font-mono mt-0.5">
+          <div className="p-4 border-b border-border-subtle bg-bg-base/30 grid grid-cols-2 gap-2 text-center">
+            <div className="p-2 rounded-md bg-bg-surface-raised/60 border border-border-subtle">
+              <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-wider">Active Chat Cost</p>
+              <p className="text-sm font-bold text-status-success font-mono mt-0.5">
                 {activeChat ? `$${Object.values(activeChat.modelStats).reduce((sum, s) => sum + s.cost, 0).toFixed(5)}` : "$0.00000"}
               </p>
             </div>
-            <div className="p-2 rounded bg-zinc-900/60 border border-zinc-800/80">
-              <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Total User Cost</p>
-              <p className="text-sm font-bold text-violet-400 font-mono mt-0.5">
+            <div className="p-2 rounded-md bg-bg-surface-raised/60 border border-border-subtle">
+              <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-wider">Total User Cost</p>
+              <p className="text-sm font-bold text-accent-primary font-mono mt-0.5">
                 {totalUserCost ? `$${totalUserCost.toFixed(5)}` : "$0.00000"}
               </p>
             </div>
           </div>
 
           {/* List of Models - FILTERED: Showing only the selected workers and evaluator */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-3.5 scrollbar-thin">
+          <div className="flex-1 overflow-y-auto p-3 space-y-4 scrollbar-thin">
             
             {activeRightSideCardIds.map((modelId) => {
               const config = MODEL_TEMPLATES[modelId];
@@ -1312,27 +1312,27 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                 <div 
                   key={modelId}
                   onClick={() => setSelectedInspectorModel(modelId)}
-                  className={`p-3 rounded-xl border bg-zinc-900/40 text-left transition duration-200 cursor-pointer ${
+                  className={`p-4 rounded-lg border text-left transition duration-200 cursor-pointer ${
                     isSelected 
-                      ? "bg-zinc-900/80 border-violet-500/50 shadow-md ring-1 ring-violet-500/10" 
-                      : "border-zinc-800 hover:bg-zinc-900/50"
+                      ? "bg-bg-surface-raised border-accent-primary shadow-md ring-1 ring-accent-primary/10" 
+                      : "border-border-subtle bg-bg-surface-raised/40 hover:bg-bg-surface-raised/60"
                   }`}
                 >
                   {/* Title Row with Workers & Evaluators Badges */}
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <span className={`h-2.5 w-2.5 rounded-full ${config.avatarColor}`} />
-                      <span className="text-xs font-bold text-white">{config.name}</span>
+                      <span className="text-xs font-bold text-text-primary">{config.name}</span>
                     </div>
 
                     <div className="flex items-center gap-1">
                       {isWorker && (
-                        <span className="text-[8px] font-mono font-bold bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-1.5 py-0.5 rounded">
+                        <span className="text-[8px] font-mono font-bold bg-status-success-bg text-status-success px-1.5 py-0.5 rounded-md">
                           Worker ✓
                         </span>
                       )}
                       {isEvaluator && (
-                        <span className="text-[8px] font-mono font-bold bg-red-500/10 border border-red-500/30 text-red-400 px-1.5 py-0.5 rounded">
+                        <span className="text-[8px] font-mono font-bold bg-accent-secondary-bg text-accent-secondary px-1.5 py-0.5 rounded-md">
                           Eval ✓
                         </span>
                       )}
@@ -1342,75 +1342,75 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                   {/* Status Indicator */}
                   <div className="mb-2">
                     {currentStatus === "running" && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-violet-950/40 border border-violet-500/30 text-violet-400 font-bold uppercase font-mono animate-pulse">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-status-info-bg text-status-info font-bold uppercase font-mono animate-pulse">
                         Running
                       </span>
                     )}
                     {currentStatus === "done" && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 font-bold uppercase font-mono">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-status-success-bg text-status-success font-bold uppercase font-mono">
                         Success
                       </span>
                     )}
                     {currentStatus === "key_error" && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-950/40 border border-red-500/30 text-red-400 font-bold uppercase font-mono">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-status-error-bg text-status-error font-bold uppercase font-mono">
                         Key Error (401)
                       </span>
                     )}
                     {currentStatus === "rate_limit" && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-950/40 border border-amber-500/30 text-amber-400 font-bold uppercase font-mono">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-status-warning-bg text-status-warning font-bold uppercase font-mono">
                         Rate Limit (429)
                       </span>
                     )}
                     {currentStatus === "timeout" && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-950/40 border border-indigo-500/30 text-indigo-400 font-bold uppercase font-mono">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-status-info-bg text-status-info font-bold uppercase font-mono">
                         Timeout
                       </span>
                     )}
                     {currentStatus === "idle" && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-500 font-mono">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-status-idle-bg text-text-tertiary font-bold uppercase font-mono">
                         Idle
                       </span>
                     )}
                   </div>
 
                   {/* Token usage per chat & cost subgrid */}
-                  <div className="grid grid-cols-3 gap-1 py-1.5 border-t border-b border-zinc-800/80 my-2 text-[10px] font-mono text-zinc-400">
+                  <div className="grid grid-cols-3 gap-1 py-1.5 border-t border-b border-border-subtle my-2 text-[10px] font-mono text-text-secondary">
                     <div>
-                      <p className="text-[8px] text-zinc-500 font-sans uppercase">Latency</p>
-                      <p className="font-bold text-zinc-200">
+                      <p className="text-[8px] text-text-tertiary font-sans uppercase">Latency</p>
+                      <p className="font-bold text-text-primary">
                         {stats && stats.latency > 0 ? `${stats.latency}s` : "0.00s"}
                       </p>
                     </div>
                     <div>
-                      <p className="text-[8px] text-zinc-500 font-sans uppercase">Tokens (In/Out)</p>
-                      <p className="font-bold text-zinc-200 leading-tight">
+                      <p className="text-[8px] text-text-tertiary font-sans uppercase">Tokens (In/Out)</p>
+                      <p className="font-bold text-text-primary leading-tight">
                         {stats && stats.inputTokens > 0 
                           ? `${stats.inputTokens + stats.outputTokens}` 
                           : "0"}
                       </p>
                       {stats && stats.inputTokens > 0 && (
-                        <p className="text-[8px] text-zinc-500">
+                        <p className="text-[8px] text-text-tertiary">
                           ({stats.inputTokens}/{stats.outputTokens})
                         </p>
                       )}
                     </div>
                     <div>
-                      <p className="text-[8px] text-zinc-500 font-sans uppercase">Cost Est.</p>
-                      <p className="font-bold text-zinc-200">
+                      <p className="text-[8px] text-text-tertiary font-sans uppercase">Cost Est.</p>
+                      <p className="font-bold text-text-primary">
                         {stats && stats.cost > 0 ? `$${stats.cost.toFixed(5)}` : "$0.00000"}
                       </p>
                     </div>
                   </div>
 
                   {/* Pricing Info helper tooltip */}
-                  <div className="flex justify-between items-center text-[9px] text-zinc-500 font-mono">
+                  <div className="flex justify-between items-center text-[9px] text-text-tertiary font-mono">
                     <span>Input: ${config.inputCostPer1K}/1k</span>
                     <span>Output: ${config.outputCostPer1K}/1k</span>
                   </div>
 
                   {/* Specialty */}
-                  <p className="text-[10px] text-zinc-500 mt-2">
-                    <span className="text-zinc-400 font-semibold">Specialty:</span> {config.strength}
+                  <p className="text-[10px] text-text-tertiary mt-2">
+                    <span className="text-text-secondary font-semibold">Specialty:</span> {config.strength}
                   </p>
 
                 </div>
@@ -1420,20 +1420,20 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
           </div>
 
           {/* Model Raw Inspector Tab Viewer */}
-          <div className="h-56 border-t border-zinc-800 flex flex-col bg-[#0b0b0d]">
+          <div className="h-56 border-t border-border-subtle flex flex-col bg-bg-surface">
             
-            <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800/60 bg-[#09090b] text-[9px] font-bold text-zinc-400 uppercase tracking-wider">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-border-subtle bg-bg-surface-raised text-[9px] font-bold text-text-secondary uppercase tracking-wider">
               <span>Raw Response Preview</span>
-              <span className="font-mono text-violet-400">
+              <span className="font-mono text-accent-primary">
                 {MODEL_TEMPLATES[selectedInspectorModel]?.name || "Select Model"}
               </span>
             </div>
 
-            <div className="flex-1 p-3 overflow-y-auto font-mono text-[10px] text-zinc-500 leading-normal scrollbar-thin bg-zinc-950/40 select-all">
+            <div className="flex-1 p-3 overflow-y-auto font-mono text-[10px] text-text-secondary leading-normal scrollbar-thin bg-bg-base/40 select-all">
               {activeChat && activeChat.modelStats[selectedInspectorModel]?.rawResponse ? (
                 <pre className="whitespace-pre-wrap">{activeChat.modelStats[selectedInspectorModel].rawResponse}</pre>
               ) : (
-                <span className="italic text-zinc-600 block text-center py-4">No data. Run search query to inspect raw model payloads.</span>
+                <span className="italic text-text-tertiary block text-center py-4">No data. Run search query to inspect raw model payloads.</span>
               )}
             </div>
 
@@ -1445,19 +1445,19 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
       {/* ==================== BYOK CREDENTIALS & SETTINGS MODAL ==================== */}
       {keysModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-zinc-800 bg-[#0f0f12] p-5 sm:p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto scrollbar-thin">
+          <div className="w-full max-w-lg rounded-lg border border-border-subtle bg-bg-surface-raised p-5 sm:p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto scrollbar-thin">
             
             {/* Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80">
+            <div className="flex items-center justify-between pb-3 border-b border-border-subtle">
               <div className="flex items-center gap-2.5">
-                <div className="p-1.5 rounded-lg bg-violet-500/10 text-violet-400">
+                <div className="p-1.5 rounded-md bg-accent-primary/10 text-accent-primary">
                   ⚙️
                 </div>
-                <h3 className="text-base font-bold text-white">ApexRouter Configurations</h3>
+                <h3 className="text-base font-bold text-text-primary">ApexRouter Configurations</h3>
               </div>
               <button 
                 onClick={() => setKeysModalOpen(false)}
-                className="text-zinc-500 hover:text-zinc-300 transition p-1"
+                className="text-text-tertiary hover:text-text-primary transition p-1"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -1468,8 +1468,8 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
             {/* BYOK KEY CONFIG SECTION WITH SIMPLIFIED PREFIX VALIDATION */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-violet-400 uppercase tracking-wider">1. API Credentials (BYOK)</h4>
-                <span className="text-[9px] text-zinc-500 font-mono">Format Verification</span>
+                <h4 className="text-xs font-bold text-accent-primary uppercase tracking-wider">1. API Credentials (BYOK)</h4>
+                <span className="text-[9px] text-text-tertiary font-mono">Format Verification</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
@@ -1479,26 +1479,26 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                   return (
                     <div key={id} className="space-y-1">
                       <div className="flex justify-between items-center">
-                        <label className="text-[11px] font-semibold text-zinc-400">{m.name} Key</label>
+                        <label className="text-[11px] font-semibold text-text-secondary">{m.name} Key</label>
                         {state === "valid" && (
-                          <span className="text-[9px] font-mono text-emerald-400 font-bold">✓ Valid Prefix</span>
+                          <span className="text-[9px] font-mono text-status-success font-bold">✓ Valid Prefix</span>
                         )}
                         {state === "invalid" && (
-                          <span className="text-[9px] font-mono text-red-400 font-bold">✗ Invalid Prefix</span>
+                          <span className="text-[9px] font-mono text-status-error font-bold">✗ Invalid Prefix</span>
                         )}
                         {state === "empty" && (
-                          <span className="text-[9px] font-mono text-zinc-650">Empty</span>
+                          <span className="text-[9px] font-mono text-text-tertiary">Empty</span>
                         )}
                       </div>
-                      <div className={`flex items-center rounded-lg border p-2 bg-zinc-950/60 ${
-                        state === "valid" ? "border-emerald-500/30" : state === "invalid" ? "border-red-500/30" : "border-zinc-800"
+                      <div className={`flex items-center rounded-md border p-2 bg-bg-base/60 ${
+                        state === "valid" ? "border-status-success/30" : state === "invalid" ? "border-status-error/30" : "border-border-subtle"
                       }`}>
                         <input
                           type="password"
                           value={apiKeys[id]}
                           placeholder={m.placeholderKey}
                           onChange={(e) => handleKeyChange(id, e.target.value)}
-                          className="w-full bg-transparent text-xs font-mono text-zinc-300 outline-none"
+                          className="w-full bg-transparent text-xs font-mono text-text-primary outline-none"
                         />
                       </div>
                     </div>
@@ -1508,18 +1508,18 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
             </div>
 
             {/* API SIMULATOR ERROR CONFIGURATION SECTION */}
-            <div className="space-y-4 pt-4 border-t border-zinc-800/80 text-left">
+            <div className="space-y-4 pt-4 border-t border-border-subtle text-left">
               <div className="flex justify-between items-center">
-                <h4 className="text-xs font-bold text-violet-400 uppercase tracking-wider">2. API Call Error Simulator</h4>
-                <span className="text-[9px] text-zinc-500 font-mono">Configure runtime response states</span>
+                <h4 className="text-xs font-bold text-accent-primary uppercase tracking-wider">2. API Call Error Simulator</h4>
+                <span className="text-[9px] text-text-tertiary font-mono">Configure runtime response states</span>
               </div>
 
-              <div className="space-y-2.5 bg-zinc-950/35 border border-zinc-800/60 p-3 rounded-xl">
+              <div className="space-y-2.5 bg-bg-base/35 border border-border-subtle p-3 rounded-lg">
                 {Object.keys(MODEL_TEMPLATES).map((id) => {
                   const m = MODEL_TEMPLATES[id];
                   return (
                     <div key={id} className="flex items-center justify-between gap-3 text-xs">
-                      <span className="font-semibold text-zinc-300">{m.name} API Call State:</span>
+                      <span className="font-semibold text-text-secondary">{m.name} API Call State:</span>
                       <select
                         value={apiErrorConfigs[id]}
                         onChange={(e) => {
@@ -1527,7 +1527,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                           setApiErrorConfigs(updated);
                           saveStateToStorage(chats, apiKeys, nextChatCounter, updated);
                         }}
-                        className="bg-zinc-900 border border-zinc-800 rounded px-2.5 py-1 text-[11px] text-zinc-300 outline-none"
+                        className="bg-bg-surface-raised border border-border-subtle rounded-md px-2.5 py-1 text-[11px] text-text-primary outline-none"
                       >
                         <option value="success">Success (Healthy Call)</option>
                         <option value="key_error">Authentication Key Error (401)</option>
@@ -1541,12 +1541,12 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
             </div>
 
             {/* WORKERS CONFIG SECTION */}
-            <div className="space-y-4 pt-4 border-t border-zinc-800/80 text-left">
+            <div className="space-y-4 pt-4 border-t border-border-subtle text-left">
               
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-violet-400 uppercase tracking-wider">3. Worker Pipeline Routing</h4>
+                <h4 className="text-xs font-bold text-accent-primary uppercase tracking-wider">3. Worker Pipeline Routing</h4>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-zinc-400 font-semibold">Max concurrent workers:</span>
+                  <span className="text-xs text-text-secondary font-semibold">Max concurrent workers:</span>
                   <select 
                     value={numWorkers}
                     onChange={(e) => {
@@ -1557,7 +1557,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                         setSelectedWorkers(selectedWorkers.slice(0, count));
                       }
                     }}
-                    className="bg-zinc-900 border border-zinc-800 text-xs px-2 py-0.5 rounded text-white"
+                    className="bg-bg-surface-raised border border-border-subtle text-xs px-2 py-0.5 rounded-md text-text-primary"
                   >
                     {[1, 2, 3, 4, 5].map((n) => (
                       <option key={n} value={n}>{n}</option>
@@ -1568,7 +1568,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
 
               {/* Workers Grid Selection */}
               <div className="space-y-1">
-                <p className="text-[10px] text-zinc-500 font-mono mb-2">Select active workers (marked with green tick):</p>
+                <p className="text-[10px] text-text-tertiary font-mono mb-2">Select active workers (marked with green tick):</p>
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                   {Object.keys(MODEL_TEMPLATES).map((id) => {
                     const config = MODEL_TEMPLATES[id];
@@ -1577,14 +1577,14 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                       <button
                         key={id}
                         onClick={() => handleToggleWorker(id)}
-                        className={`flex items-center justify-between p-2 rounded-lg border text-xs transition duration-150 ${
+                        className={`flex items-center justify-between p-2 rounded-md border text-xs transition duration-150 ${
                           isSelected 
-                            ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-bold" 
-                            : "border-zinc-800 bg-zinc-950/20 text-zinc-400 hover:bg-zinc-900"
+                            ? "bg-status-success-bg border-status-success/30 text-status-success font-bold" 
+                            : "border-border-subtle bg-bg-base/20 text-text-secondary hover:bg-bg-surface-raised"
                         }`}
                       >
                         <span>{config.name}</span>
-                        {isSelected && <span className="text-emerald-500 font-bold text-[10px]">✓</span>}
+                        {isSelected && <span className="text-status-success font-bold text-[10px]">✓</span>}
                       </button>
                     );
                   })}
@@ -1594,7 +1594,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
               {/* Evaluator Configuration Selector */}
               <div className="space-y-1.5 pt-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-[11px] font-semibold text-zinc-400">Evaluator Model (marked with red tick):</p>
+                  <p className="text-[11px] font-semibold text-text-secondary">Evaluator Model (marked with red tick):</p>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                   {Object.keys(MODEL_TEMPLATES).map((id) => {
@@ -1604,14 +1604,14 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                       <button
                         key={id}
                         onClick={() => setSelectedEvaluator(id)}
-                        className={`flex items-center justify-between p-2 rounded-lg border text-xs transition duration-150 ${
+                        className={`flex items-center justify-between p-2 rounded-md border text-xs transition duration-150 ${
                           isSelected 
-                            ? "bg-red-500/10 border-red-500/30 text-red-400 font-bold" 
-                            : "border-zinc-800 bg-zinc-950/20 text-zinc-400 hover:bg-zinc-900"
+                            ? "bg-accent-secondary-bg border-accent-secondary/30 text-accent-secondary font-bold" 
+                            : "border-border-subtle bg-bg-base/20 text-text-secondary hover:bg-bg-surface-raised"
                         }`}
                       >
                         <span>{config.name}</span>
-                        {isSelected && <span className="text-red-500 font-bold text-[10px]">✓</span>}
+                        {isSelected && <span className="text-accent-secondary font-bold text-[10px]">✓</span>}
                       </button>
                     );
                   })}
@@ -1621,13 +1621,13 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
               {/* Auto-Title Model Settings */}
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3">
                 <div className="text-left">
-                  <p className="text-[11px] font-semibold text-zinc-400">Auto-Title Thread Configuration</p>
-                  <p className="text-[9px] text-zinc-500 font-mono">Model used to auto-name sidebar threads</p>
+                  <p className="text-[11px] font-semibold text-text-secondary">Auto-Title Thread Configuration</p>
+                  <p className="text-[9px] text-text-tertiary font-mono">Model used to auto-name sidebar threads</p>
                 </div>
                 <select 
                   value={autoTitleModel}
                   onChange={(e) => setAutoTitleModel(e.target.value)}
-                  className="bg-zinc-900 border border-zinc-800 text-xs px-2 py-1.5 rounded-lg text-white font-mono w-full sm:w-44"
+                  className="bg-bg-surface-raised border border-border-subtle text-xs px-2 py-1.5 rounded-md text-text-primary font-mono w-full sm:w-44"
                 >
                   {Object.keys(MODEL_TEMPLATES).map((id) => (
                     <option key={id} value={id}>{MODEL_TEMPLATES[id].name}</option>
@@ -1638,10 +1638,10 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
             </div>
 
             {/* Save Buttons */}
-            <div className="flex gap-3 justify-end pt-4 border-t border-zinc-800">
+            <div className="flex gap-3 justify-end pt-4 border-t border-border-subtle">
               <button
                 onClick={() => setKeysModalOpen(false)}
-                className="px-4 py-2 rounded-xl border border-zinc-800 hover:bg-zinc-800 text-xs font-semibold text-zinc-400 hover:text-white transition"
+                className="px-4 py-2 rounded-md border border-border-subtle hover:bg-bg-surface-raised text-xs font-semibold text-text-secondary hover:text-text-primary transition"
               >
                 Cancel
               </button>
@@ -1651,7 +1651,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                   saveStateToStorage(chats, apiKeys, nextChatCounter, apiErrorConfigs);
                   alert("Settings successfully written to storage!");
                 }}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-md shadow-violet-500/20 transition duration-200"
+                className="px-4 py-2 rounded-md bg-accent-primary hover:bg-accent-primary-hover text-white text-xs font-semibold shadow-md shadow-accent-primary/20 transition duration-200"
               >
                 Save Settings
               </button>
@@ -1664,3 +1664,4 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
     </div>
   );
 }
+
