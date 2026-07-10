@@ -1342,7 +1342,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                             const lang = lines[0] || "python";
                             const codeContent = lines.slice(1).join("\n");
                             return (
-                              <div key={idx} className="my-3 rounded-lg overflow-hidden border border-border-subtle bg-bg-base/80">
+                              <div key={idx} className="my-3 rounded-sm overflow-hidden border border-border-subtle bg-bg-base/80">
                                 <div className="flex items-center justify-between px-3 py-1.5 bg-bg-surface-raised/60 text-[10px] text-text-tertiary font-mono border-b border-border-subtle">
                                   <span>{lang} code block</span>
                                   <button 
@@ -1515,12 +1515,12 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
 
                     <div className="flex items-center gap-1">
                       {isWorker && (
-                        <span className="text-[8px] font-mono font-bold bg-status-success-bg text-status-success px-1.5 py-0.5 rounded-md">
+                        <span className="text-[8px] font-mono font-bold bg-status-success-bg text-status-success px-1.5 py-0.5 rounded-sm">
                           Worker ✓
                         </span>
                       )}
                       {isEvaluator && (
-                        <span className="text-[8px] font-mono font-bold bg-accent-secondary-bg text-accent-secondary px-1.5 py-0.5 rounded-md">
+                        <span className="text-[8px] font-mono font-bold bg-accent-secondary-bg text-accent-secondary px-1.5 py-0.5 rounded-sm">
                           Eval ✓
                         </span>
                       )}
@@ -1530,32 +1530,32 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                   {/* Status Indicator */}
                   <div className="mb-2">
                     {currentStatus === "running" && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-status-info-bg text-status-info font-bold uppercase font-mono animate-pulse">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-sm bg-status-info-bg text-status-info font-bold uppercase font-mono animate-pulse">
                         Running
                       </span>
                     )}
                     {currentStatus === "done" && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-status-success-bg text-status-success font-bold uppercase font-mono">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-sm bg-status-success-bg text-status-success font-bold uppercase font-mono">
                         Success
                       </span>
                     )}
                     {currentStatus === "key_error" && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-status-error-bg text-status-error font-bold uppercase font-mono">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-sm bg-status-error-bg text-status-error font-bold uppercase font-mono">
                         Key Error (401)
                       </span>
                     )}
                     {currentStatus === "rate_limit" && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-status-warning-bg text-status-warning font-bold uppercase font-mono">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-sm bg-status-warning-bg text-status-warning font-bold uppercase font-mono">
                         Rate Limit (429)
                       </span>
                     )}
                     {currentStatus === "timeout" && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-status-info-bg text-status-info font-bold uppercase font-mono">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-sm bg-status-info-bg text-status-info font-bold uppercase font-mono">
                         Timeout
                       </span>
                     )}
                     {currentStatus === "idle" && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-status-idle-bg text-text-tertiary font-bold uppercase font-mono">
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-sm bg-status-idle-bg text-text-tertiary font-bold uppercase font-mono">
                         Idle
                       </span>
                     )}

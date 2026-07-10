@@ -1,67 +1,104 @@
 @import "tailwindcss";
 
 :root {
-  --bg-base: #161513;
-  --bg-surface: #1D1B18;
-  --bg-surface-raised: #242220;
-  --border-subtle: #332F2A;
-  --border-strong: #4A443C;
-  --text-primary: #EDE8DF;
-  --text-secondary: #A69C8D;
-  --text-tertiary: #6E665A;
-  --accent-primary: #5B8A82;
-  --accent-primary-hover: #6FA298;
-  --accent-secondary: #C08552;
-  --accent-secondary-bg: #3d2b1f;
-  --status-success: #7A9B76;
-  --status-warning: #C99A4A;
-  --status-error: #B5654F;
-  --status-info: #6B8CAE;
+  /* ======================================================
+     Base Layers
+  ====================================================== */
 
-  /* Deeper status badge backgrounds (solid tints) */
-  --status-success-bg: #222b20;
-  --status-warning-bg: #3d2f1b;
-  --status-error-bg: #361f1a;
-  --status-info-bg: #202b38;
-  --status-idle-bg: #23201d;
+  --bg-base: #090b11;
+  --bg-surface: #10131c;
+  --bg-surface-raised: #171b26;
 
-  /* Desaturated model colors for dots/indicators */
-  --model-openai: #489a7c;
-  --model-claude: #c97f53;
-  --model-gemini: #5f82b5;
-  --model-deepseek: #4a91b0;
-  --model-mistral: #bd5b5b;
+  /* ======================================================
+     Borders
+  ====================================================== */
+
+  --border-subtle: #283146;
+  --border-strong: #00f5ff;
+
+  /* ======================================================
+     Typography
+  ====================================================== */
+
+  --text-primary: #f4f8ff;
+  --text-secondary: #a2b3d0;
+  --text-tertiary: #61708e;
+
+  /* ======================================================
+     Primary Accent
+  ====================================================== */
+
+  --accent-primary: #00f5ff;
+  --accent-primary-hover: #43f8ff;
+
+  /* Secondary Accent */
+
+  --accent-secondary: #b026ff;
+  --accent-secondary-bg: #24042f;
+
+  /* ======================================================
+     Status Colors
+  ====================================================== */
+
+  --status-success: #3dff73;
+  --status-warning: #ffc933;
+  --status-error: #ff2d55;
+  --status-info: #38bdf8;
+
+  --status-success-bg: #072313;
+  --status-warning-bg: #2d2104;
+  --status-error-bg: #2d0710;
+  --status-info-bg: #061f31;
+  --status-idle-bg: #161b29;
+
+  /* ======================================================
+     Provider Identity
+  ====================================================== */
+
+  --model-openai: #00f5d4;
+  --model-claude: #ff9d00;
+  --model-gemini: #3b82ff;
+  --model-deepseek: #8b5cf6;
+  --model-mistral: #ff2ea6;
 
   --background: var(--bg-base);
   --foreground: var(--text-primary);
 }
 
+/* ======================================================
+   Tailwind Theme Tokens
+====================================================== */
+
 @theme {
+
   --color-bg-base: var(--bg-base);
   --color-bg-surface: var(--bg-surface);
   --color-bg-surface-raised: var(--bg-surface-raised);
+
   --color-border-subtle: var(--border-subtle);
   --color-border-strong: var(--border-strong);
+
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
   --color-text-tertiary: var(--text-tertiary);
+
   --color-accent-primary: var(--accent-primary);
   --color-accent-primary-hover: var(--accent-primary-hover);
+
   --color-accent-secondary: var(--accent-secondary);
   --color-accent-secondary-bg: var(--accent-secondary-bg);
+
   --color-status-success: var(--status-success);
   --color-status-warning: var(--status-warning);
   --color-status-error: var(--status-error);
   --color-status-info: var(--status-info);
 
-  /* Deeper status backgrounds */
   --color-status-success-bg: var(--status-success-bg);
   --color-status-warning-bg: var(--status-warning-bg);
   --color-status-error-bg: var(--status-error-bg);
   --color-status-info-bg: var(--status-info-bg);
   --color-status-idle-bg: var(--status-idle-bg);
 
-  /* Model colors */
   --color-model-openai: var(--model-openai);
   --color-model-claude: var(--model-claude);
   --color-model-gemini: var(--model-gemini);
@@ -70,10 +107,31 @@
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* ======================================================
+     Cyberpunk Shadows
+  ====================================================== */
+
+  --shadow-glow:
+      0 0 10px rgba(0,245,255,.18),
+      0 0 25px rgba(0,245,255,.14);
+
+  --shadow-glow-secondary:
+      0 0 10px rgba(176,38,255,.18),
+      0 0 25px rgba(176,38,255,.14);
+
+  --shadow-md:
+      0 10px 25px rgba(0,0,0,.45);
+
+  --shadow-lg:
+      0 18px 40px rgba(0,0,0,.55);
+
+  --shadow-2xl:
+      0 35px 70px rgba(0,0,0,.70);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+body{
+    background:var(--background);
+    color:var(--foreground);
+    font-family:Arial,Helvetica,sans-serif;
 }
