@@ -78,7 +78,7 @@ const PROVIDER_META: Record<string, {
   }
 };
 
-const PROVIDER_MODELS: Record<string, ModelOption[]> = {
+const PROVIDER_MODELS: Record<string, ModelOption[]> = { // helpseeker // tokens info
   openai: [
     {
       id: "gpt-4o",
@@ -284,24 +284,43 @@ interface Chat {
 }
 
 // Simple Prefix Key Validation Checker
-const checkKeyValidity = (provider: string, key: string): "empty" | "valid" | "invalid" => {
-  if (!key || key.trim() === "") return "empty";
-  
+const checkKeyValidity = (
+  provider: string,
+  key: string
+): "empty" | "valid" | "invalid" => {
+  if (!key?.trim()) return "empty";
+
   const val = key.trim();
-  switch (provider.toLowerCase()) {
-    case "openai":
-      return val.startsWith("sk") ? "valid" : "invalid";
-    case "claude":
-      return val.startsWith("sk") ? "valid" : "invalid";
-    case "gemini":
-      return val.startsWith("AIza") ? "valid" : "invalid";
-    case "deepseek":
-      return val.startsWith("sk") ? "valid" : "invalid";
-    case "mistral":
-      return val.startsWith("sk") ? "valid" : "invalid";
-    default:
-      return "invalid";
-  }
+
+  const patterns: Record<string, RegExp> = {
+    // OpenAI
+    openai:
+      /^sk(?:-proj|-svcacct|-admin)?-[A-Za-z0-9_-]{20,}$/,
+
+    // Anthropic / Claude
+    claude:
+      /^sk-ant-api[0-9A-Za-z_-]{20,}$/,
+
+    // Gemini (supports both old and new keys)
+    gemini:
+      /^(AIza[A-Za-z0-9_-]{20,}|AQ[A-Za-z0-9._-]{20,})$/,
+
+    // DeepSeek
+    deepseek:
+      /^sk-[A-Za-z0-9_-]{20,}$/,
+
+    // Mistral
+    // Mistral keys don't have a guaranteed public prefix anymore,
+    // so only reject obviously invalid values.
+    mistral:
+      /^[A-Za-z0-9._-]{20,}$/
+  };
+
+  const regex = patterns[provider.toLowerCase()];
+
+  if (!regex) return "invalid";
+
+  return regex.test(val) ? "valid" : "invalid";
 };
 
 export default function App() {
