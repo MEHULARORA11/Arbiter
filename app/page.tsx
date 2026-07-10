@@ -2,8 +2,9 @@
 
 import React, { useState, useEffect, useRef } from "react";
 
-// Mock database structures and simulation details
-interface ModelCard {
+// ==================== METADATA & CONSTANTS ====================
+
+interface ModelConfig {
   id: string;
   name: string;
   provider: string;
@@ -11,16 +12,16 @@ interface ModelCard {
   borderColor: string;
   textColor: string;
   accentBg: string;
-  defaultLatency: number;
-  defaultTokens: number;
-  defaultCost: number;
+  inputCostPer1K: number;  // Dummy rates
+  outputCostPer1K: number; // Dummy rates
   strength: string;
-  rawResponse: string;
-  failedResponse: string;
+  regex: RegExp;
+  placeholderKey: string;
+  rawResponseTemplate: string;
 }
 
-const MODELS: ModelCard[] = [
-  {
+const MODEL_TEMPLATES: Record<string, ModelConfig> = {
+  openai: {
     id: "openai",
     name: "GPT-4o",
     provider: "OpenAI",
@@ -28,56 +29,23 @@ const MODELS: ModelCard[] = [
     borderColor: "border-emerald-500/30 hover:border-emerald-500/60",
     textColor: "text-emerald-400",
     accentBg: "bg-emerald-500/10",
-    defaultLatency: 1.24,
-    defaultTokens: 412,
-    defaultCost: 0.00206,
+    inputCostPer1K: 0.0025, // $2.50 per 1M tokens
+    outputCostPer1K: 0.0100, // $10.00 per 1M tokens
     strength: "Precise coding & highly optimized execution syntax.",
-    rawResponse: `### QuickSort vs MergeSort Implementation in Python
-
-Here is a quick, optimized implementation of both algorithms.
-
+    regex: /^sk-[a-zA-Z0-9-]{20,100}$/,
+    placeholderKey: "sk-proj-...",
+    rawResponseTemplate: `### OpenAI GPT-4o Response
+Here is the requested sorting analysis:
+* **QuickSort**: Average $O(n \\log n)$, Worst $O(n^2)$. In-place partitioning. Very fast on primitives due to cache locality.
+* **MergeSort**: Always $O(n \\log n)$. Stable, preserves index sequences, but uses $O(n)$ extra memory.
 \`\`\`python
-# QuickSort (In-place, average O(n log n))
 def quicksort(arr):
-    if len(arr) <= 1:
-        return arr
-    pivot = arr[len(arr) // 2]
-    left = [x for x in arr if x < pivot]
-    middle = [x for x in arr if x == pivot]
-    right = [x for x in arr if x > pivot]
-    return quicksort(left) + middle + quicksort(right)
-
-# MergeSort (Stable, guaranteed O(n log n))
-def mergesort(arr):
-    if len(arr) <= 1:
-        return arr
-    mid = len(arr) // 2
-    left = mergesort(arr[:mid])
-    right = mergesort(arr[mid:])
-    return merge(left, right)
-
-def merge(left, right):
-    result = []
-    i = j = 0
-    while i < len(left) and j < len(right):
-        if left[i] < right[j]:
-            result.append(left[i])
-            i += 1
-        else:
-            result.append(right[j])
-            j += 1
-    result.extend(left[i:])
-    result.extend(right[j:])
-    return result
-\`\`\`
-
-**Time Complexity Analysis:**
-* **QuickSort**: Average $O(n \\log n)$, Worst-case $O(n^2)$ (when pivot is poorly chosen).
-* **MergeSort**: Always $O(n \\log n)$ for all cases.
-`,
-    failedResponse: "Model failed to respond due to endpoint rate limits.",
+    if len(arr) <= 1: return arr
+    pivot = arr[len(arr)//2]
+    return quicksort([x for x in arr if x < pivot]) + [x for x in arr if x == pivot] + quicksort([x for x in arr if x > pivot])
+\`\`\``
   },
-  {
+  claude: {
     id: "claude",
     name: "Claude 3.5 Sonnet",
     provider: "Anthropic",
@@ -85,47 +53,24 @@ def merge(left, right):
     borderColor: "border-orange-500/30 hover:border-orange-500/60",
     textColor: "text-orange-400",
     accentBg: "bg-orange-500/10",
-    defaultLatency: 1.68,
-    defaultTokens: 489,
-    defaultCost: 0.00734,
-    strength: "Architectural reasoning, worst-case edge cases, and safety limits.",
-    rawResponse: `### Algorithmic Comparison: QuickSort vs MergeSort
-
-When deciding between **QuickSort** and **MergeSort**, the choice often depends on architectural trade-offs: memory limits, stable sorting requirements, and hardware cache performance.
-
-#### Architectural Breakdown
-1. **Space Complexity**:
-   - **QuickSort** is space-efficient. It runs in-place, requiring only $O(\\log n)$ auxiliary space for the recursion stack.
-   - **MergeSort** requires $O(n)$ extra memory to hold auxiliary arrays during merging, making it memory-intensive for large datasets.
-2. **Stability**:
-   - **MergeSort** is naturally **stable** (preserves the relative order of identical elements), which is critical for complex object sorting.
-   - **QuickSort** is **unstable** in its standard in-place configurations.
-3. **Worst-Case Behavior**:
-   - **QuickSort** suffers from a quadratic $O(n^2)$ worst-case time complexity if pivots consistently partition the array into empty and $n-1$ elements.
-   - **MergeSort** maintains a strict $O(n \\log n)$ bound under all conditions.
-
-#### Python Code Snippet (In-Place Partitioning for QuickSort)
+    inputCostPer1K: 0.0030, // $3.00 per 1M tokens
+    outputCostPer1K: 0.0150, // $15.00 per 1M tokens
+    strength: "Architectural reasoning, edge case handling, and complexity bounds.",
+    regex: /^sk-ant-[a-zA-Z0-9-]{30,120}$/,
+    placeholderKey: "sk-ant-...",
+    rawResponseTemplate: `### Claude 3.5 Sonnet Response
+Evaluating sorting architectures:
+* **Memory Limits**: MergeSort auxiliary array space can cause OOM on heap limits. QuickSort uses stack memory $O(\\log n)$.
+* **Stability Requirement**: If sorting complex data elements (e.g. database records with composite keys), MergeSort's stable merge preserves historical orders.
 \`\`\`python
-def quicksort_inplace(arr, low, high):
-    if low < high:
-        p_idx = partition(arr, low, high)
-        quicksort_inplace(arr, low, p_idx - 1)
-        quicksort_inplace(arr, p_idx + 1, high)
-
-def partition(arr, low, high):
-    pivot = arr[high]
-    i = low - 1
-    for j in range(low, high):
-        if arr[j] <= pivot:
-            i += 1
-            arr[i], arr[j] = arr[j], arr[i]
-    arr[i + 1], arr[high] = arr[high], arr[i + 1]
-    return i + 1
-\`\`\`
-`,
-    failedResponse: "Model failed to respond due to endpoint rate limits.",
+def mergesort(arr):
+    if len(arr) <= 1: return arr
+    mid = len(arr) // 2
+    left, right = mergesort(arr[:mid]), mergesort(arr[mid:])
+    return merge(left, right)
+\`\`\``
   },
-  {
+  gemini: {
     id: "gemini",
     name: "Gemini 1.5 Pro",
     provider: "Google",
@@ -133,881 +78,958 @@ def partition(arr, low, high):
     borderColor: "border-blue-500/30 hover:border-blue-500/60",
     textColor: "text-blue-400",
     accentBg: "bg-blue-500/10",
-    defaultLatency: 0.98,
-    defaultTokens: 524,
-    defaultCost: 0.00366,
-    strength: "Explanatory analogies, large context integration, and visual flows.",
-    rawResponse: `### Conceptualizing QuickSort and MergeSort
-
-Think of the differences using these real-world comparisons:
-
-* **MergeSort (Divide & Conquer / Cooperative)**: Imagine a teacher collecting exam papers from 4 classrooms. Instead of sorting all 120 papers at once, the teacher asks each of the 4 assistants to sort their classroom papers first ($O(n \\log n)$ division), then merges the sorted piles. It is highly predictable but requires an empty table large enough to hold all 120 papers ($O(n)$ memory).
-* **QuickSort (Partitioning / Pivot-Based)**: Imagine sorting a list of numbers by choosing a random "middle value" (e.g., 50), putting everything smaller than 50 in a left bucket and everything larger in a right bucket, then repeating. You don't need additional tables (in-place), but if you accidentally pick the smallest number (e.g., 1) as your pivot every time, you end up sorting one-by-one ($O(n^2)$ worst case).
-
-#### Time & Space Complexity Summary Table
-| Metric | QuickSort | MergeSort |
-| :--- | :--- | :--- |
-| **Best Case** | $O(n \\log n)$ | $O(n \\log n)$ |
-| **Average Case** | $O(n \\log n)$ | $O(n \\log n)$ |
-| **Worst Case** | $O(n^2)$ | $O(n \\log n)$ |
-| **Space Complexity** | $O(\\log n)$ | $O(n)$ |
-| **Stability** | No | Yes |
-`,
-    failedResponse: "Google API Error: Service Unavailable (503). Simulation of Promise.allSettled fallback active.",
+    inputCostPer1K: 0.00125, // $1.25 per 1M tokens
+    outputCostPer1K: 0.00375, // $3.75 per 1M tokens
+    strength: "Explanatory analogies, context windows, and structured flows.",
+    regex: /^AIzaSy[a-zA-Z0-9_-]{30,45}$/,
+    placeholderKey: "AIzaSy...",
+    rawResponseTemplate: `### Gemini 1.5 Pro Response
+Think of sorting like sorting a library book shelf:
+* **MergeSort**: You break the shelf into 2 halves, ask 2 assistants to sort them separately, and merge. Safe, but you need table space equal to the shelf size ($O(n)$ space).
+* **QuickSort**: You pick a random book (pivot), place all thinner books to the left and thicker to the right. Fast, but if you pick the thinnest book every time, you sort one-by-one ($O(n^2)$ worst case).`
   },
-];
-
-// Synthesized final answer
-const SYNTHESIZED_RESPONSE_SUCCESS = `### Synthesized Orchestration Report: QuickSort vs MergeSort
-
-This response integrates the core implementations from **GPT-4o**, the architectural analysis from **Claude 3.5 Sonnet**, and the analogies/complexity profiles from **Gemini 1.5 Pro**.
-
----
-
-### 1. Conceptual Framework
-* **QuickSort** is a partitioning-based algorithm. It selects a *pivot* element, organizes all other elements into sub-arrays depending on whether they are smaller or larger than the pivot, and recursively sorts the sub-arrays. It operates **in-place** with high cache locality, making it exceptionally fast in practice.
-* **MergeSort** is a divide-and-conquer algorithm. It recursively splits the array into halves until single-element arrays are reached, and then merges them back in sorted order. It is a **stable** sort but requires **extra memory** ($O(n)$ space).
-
----
-
-### 2. Time & Space Complexity Matrix
-
-| Dimension | QuickSort (In-Place) | MergeSort (Stable) | Synthesized Trade-off |
-| :--- | :--- | :--- | :--- |
-| **Best Case** | $O(n \\log n)$ | $O(n \\log n)$ | Both perform mathematically equivalent operations. |
-| **Average Case** | $O(n \\log n)$ | $O(n \\log n)$ | QuickSort has a smaller constant factor (cache-friendly). |
-| **Worst Case** | $O(n^2)$ | $O(n \\log n)$ | MergeSort guarantees performance; QuickSort depends on pivot selection. |
-| **Space Complexity** | $O(\\log n)$ (recursion stack) | $O(n)$ (auxiliary array) | QuickSort is preferred in memory-constrained environments. |
-| **Stability** | Unstable | Stable | MergeSort is required when order of equal keys must be preserved. |
-
----
-
-### 3. Implementation Details (Python)
-
-#### A. In-Place QuickSort (Optimized)
-This implementation uses the Lomuto partition scheme for optimal in-place memory usage (avoiding auxiliary lists):
-
+  deepseek: {
+    id: "deepseek",
+    name: "DeepSeek V3",
+    provider: "DeepSeek",
+    avatarColor: "bg-sky-500",
+    borderColor: "border-sky-500/30 hover:border-sky-500/60",
+    textColor: "text-sky-400",
+    accentBg: "bg-sky-500/10",
+    inputCostPer1K: 0.00014, // $0.14 per 1M tokens
+    outputCostPer1K: 0.00028, // $0.28 per 1M tokens
+    strength: "Extremely cost-effective mathematical reasoning and clean logic.",
+    regex: /^(sk-ds-[a-zA-Z0-9-]{20,100}|sk-[a-zA-Z0-9]{32,48})$/,
+    placeholderKey: "sk-ds-...",
+    rawResponseTemplate: `### DeepSeek V3 Response
+Analyzing recursive optimizations:
+* QuickSort is standard in libraries like C++ std::sort (IntroSort fallback) due to pointer cache benefits.
+* DeepSeek recommends memoization-like pivots. By choosing median-of-three, we practically avoid the worst-case quadratic complexity:
 \`\`\`python
-def quicksort_inplace(arr, low, high):
-    if low < high:
-        pivot_idx = partition(arr, low, high)
-        quicksort_inplace(arr, low, pivot_idx - 1)
-        quicksort_inplace(arr, pivot_idx + 1, high)
+# Median-of-three pivot quicksort helper
+def median_of_three(a, b, c):
+    return sorted([a, b, c])[1]
+\`\`\``
+  },
+  mistral: {
+    id: "mistral",
+    name: "Mistral Large",
+    provider: "Mistral",
+    avatarColor: "bg-red-500",
+    borderColor: "border-red-500/30 hover:border-red-500/60",
+    textColor: "text-red-400",
+    accentBg: "bg-red-500/10",
+    inputCostPer1K: 0.0020, // $2.00 per 1M tokens
+    outputCostPer1K: 0.0060, // $6.00 per 1M tokens
+    strength: "Systems design, European localization, and low overhead operations.",
+    regex: /^(sk-ms-[a-zA-Z0-9-]{20,100}|[a-zA-Z0-9]{32})$/,
+    placeholderKey: "Mistral key...",
+    rawResponseTemplate: `### Mistral Large Response
+Sorting complexity profile:
+* MergeSort is stable, parallelizable on disk blocks.
+* QuickSort worst-case stack is $O(n)$ without tail recursion optimization. With tail recursion, it is $O(\\log n)$.
+* Mistral Large prioritizes cache friendliness: arrays fit cache lines, so QuickSort swaps are blazing fast.`
+  }
+};
 
-def partition(arr, low, high):
-    pivot = arr[high]
-    i = low - 1
-    for j in range(low, high):
-        if arr[j] <= pivot:
-            i += 1
-            arr[i], arr[j] = arr[j], arr[i]
-    arr[i + 1], arr[high] = arr[high], arr[i + 1]
-    return i + 1
-\`\`\`
+interface Message {
+  role: "user" | "assistant";
+  content: string;
+}
 
-#### B. Stable MergeSort (Guaranteed Performance)
-This version utilizes auxiliary slicing to ensure $O(n \\log n)$ efficiency:
+interface Chat {
+  id: string;
+  title: string;
+  messages: Message[];
+  // Stats tracked per chat per model (resets on chat switch)
+  modelStats: Record<string, {
+    latency: number;
+    inputTokens: number;
+    outputTokens: number;
+    cost: number;
+    status: "idle" | "running" | "done" | "failed";
+    rawResponse: string;
+  }>;
+}
 
-\`\`\`python
-def mergesort(arr):
-    if len(arr) <= 1:
-        return arr
-    mid = len(arr) // 2
-    left = mergesort(arr[:mid])
-    right = mergesort(arr[mid:])
-    
-    return merge(left, right)
+export default function App() {
+  // ==================== CORE STATE ====================
 
-def merge(left, right):
-    result = []
-    i = j = 0
-    while i < len(left) and j < len(right):
-        if left[i] <= right[j]:
-            result.append(left[i])
-            i += 1
-        else:
-            result.append(right[j])
-            j += 1
-    result.extend(left[i:])
-    result.extend(right[j:])
-    return result
-\`\`\`
+  // Auth
+  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
 
----
-
-### 4. Evaluator Recommendation
-1. **Choose QuickSort** if you are sorting primitive datatypes (integers, floats) in-memory where cache performance and memory constraints are paramount. (Ensure randomized pivot selection is used to avoid $O(n^2)$ worst cases).
-2. **Choose MergeSort** if you are sorting objects where sort stability is crucial, or when dealing with linked structures (like linked lists) where pointer manipulation is cheap and memory allocations can be optimized.`;
-
-const SYNTHESIZED_RESPONSE_FALLBACK = `### Synthesized Orchestration Report: QuickSort vs MergeSort (Degraded Mode)
-
-> [!WARNING]
-> **Gemini 1.5 Pro failed to respond (API Error: 503)**. 
-> The orchestrator bypassed the failure using \`Promise.allSettled()\` and synthesized the final output using **GPT-4o** and **Claude 3.5 Sonnet** data only.
-
----
-
-### 1. Conceptual Framework (GPT-4o + Claude)
-* **QuickSort** (In-Place, Partition-based): Selects a pivot, groups elements, and sorts recursively. Optimizes for space over stability.
-* **MergeSort** (Divide & Conquer): Splits arrays, recursively sorts, and merges. Optimizes for stability and guaranteed bounds.
-
-### 2. Time & Space Complexity Comparison
-
-| Algorithm | Average Time | Worst Time | Space Complexity | Stable |
-| :--- | :--- | :--- | :--- | :--- |
-| **QuickSort** | $O(n \\log n)$ | $O(n^2)$ | $O(\\log n)$ | No |
-| **MergeSort** | $O(n \\log n)$ | $O(n \\log n)$ | $O(n)$ | Yes |
-
-*Note: Conceptual analogies usually provided by Gemini 1.5 Pro are unavailable in this report due to provider downtime.*
-
-### 3. Synthesized Python Implementation
-*(Optimized implementation based on GPT-4o's compact structure and Claude's safety partitions)*
-
-\`\`\`python
-def quicksort(arr):
-    if len(arr) <= 1:
-        return arr
-    pivot = arr[len(arr) // 2]
-    left = [x for x in arr if x < pivot]
-    middle = [x for x in arr if x == pivot]
-    right = [x for x in arr if x > pivot]
-    return quicksort(left) + middle + quicksort(right)
-\`\`\`
-
-### 4. Evaluator Consensus
-Without Gemini's input, the system recommends **QuickSort** for immediate, low-latency, memory-efficient sorting tasks, and **MergeSort** if stability is strictly required.`;
-
-export default function LandingPage() {
-  // Navigation & Toggle States
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [rightPanelOpen, setRightPanelOpen] = useState(true);
+  // Layout View Controls
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [keysModalOpen, setKeysModalOpen] = useState(false);
-  const [geminiFails, setGeminiFails] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  
-  // Pipeline State Machine
-  // 'idle' | 'sending' | 'running_models' | 'evaluating' | 'saving' | 'completed'
-  const [pipelineState, setPipelineState] = useState<
-    "idle" | "sending" | "running_models" | "evaluating" | "saving" | "completed"
-  >("idle");
 
-  // Simulated active model states
-  const [openaiState, setOpenaiState] = useState<"idle" | "running" | "done" | "failed">("idle");
-  const [claudeState, setClaudeState] = useState<"idle" | "running" | "done" | "failed">("idle");
-  const [geminiState, setGeminiState] = useState<"idle" | "running" | "done" | "failed">("idle");
+  // Active Selected Chat
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [nextChatCounter, setNextChatCounter] = useState(1);
+  const [editingChatId, setEditingChatId] = useState<string | null>(null);
+  const [editingChatTitle, setEditingChatTitle] = useState("");
 
-  // Real-time latency counting states during simulation
-  const [openaiLatency, setOpenaiLatency] = useState(0);
-  const [claudeLatency, setClaudeLatency] = useState(0);
-  const [geminiLatency, setGeminiLatency] = useState(0);
-
-  // BYOK Saved Keys Mocks
-  const [apiKeys, setApiKeys] = useState({
-    openai: "sk-proj-••••••••••••••••U7A8",
-    claude: "sk-ant-••••••••••••••••9F3D",
-    gemini: "AIzaSy••••••••••••••••8H1W",
+  // BYOK Credentials (Keys)
+  const [apiKeys, setApiKeys] = useState<Record<string, string>>({
+    openai: "",
+    claude: "",
+    gemini: "",
+    deepseek: "",
+    mistral: ""
   });
 
-  // Active Chat Message history mock
-  const [messages, setMessages] = useState<
-    Array<{
-      role: "user" | "assistant";
-      content: string;
-      isFallback?: boolean;
-    }>
-  >([]);
+  // Orchestrator Configuration Defaults
+  const [numWorkers, setNumWorkers] = useState(3);
+  const [selectedWorkers, setSelectedWorkers] = useState<string[]>(["openai", "mistral", "claude"]);
+  const [selectedEvaluator, setSelectedEvaluator] = useState<string>("claude");
+  const [autoTitleModel, setAutoTitleModel] = useState<string>("mistral");
 
-  // Selected comparison tab for the individual model inspector
+  // Key validation errors during typing
+  const [keyValidationStates, setKeyValidationStates] = useState<Record<string, "empty" | "valid" | "invalid">>({
+    openai: "empty",
+    claude: "empty",
+    gemini: "empty",
+    deepseek: "empty",
+    mistral: "empty"
+  });
+
+  // UI state machine for orchestrator execution
+  const [pipelineState, setPipelineState] = useState<"idle" | "running" | "completed">("idle");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeErrorMessage, setActiveErrorMessage] = useState<string | null>(null);
+
+  // Inspector Card Focus
   const [selectedInspectorModel, setSelectedInspectorModel] = useState<string>("openai");
 
-  // Triggering the simulation
-  const handleStartSimulation = (promptText: string) => {
-    if (!promptText.trim()) return;
-    
-    // Reset states
-    setSearchQuery("");
-    setPipelineState("sending");
-    setOpenaiState("running");
-    setClaudeState("running");
-    setGeminiState(geminiFails ? "failed" : "running");
-    
-    setOpenaiLatency(0);
-    setClaudeLatency(0);
-    setGeminiLatency(0);
+  // DOM Refs for Auto-Scroll
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
-    // Add user message to UI
-    setMessages([
-      { role: "user", content: promptText }
-    ]);
+  // ==================== INITIALIZATION & PERSISTENCE ====================
 
-    // Latency counter animation loops
-    let openaiTimer: NodeJS.Timeout;
-    let claudeTimer: NodeJS.Timeout;
-    let geminiTimer: NodeJS.Timeout;
+  useEffect(() => {
+    // Check if session storage is active
+    const savedLogin = sessionStorage.getItem("is_logged_in");
+    let isGuest = true;
+    if (savedLogin === "true") {
+      setUser({ name: "Mehul Arora", email: "mehul@example.com" });
+      isGuest = false;
+    }
 
-    // Step 1: Sending -> Running Models (Concurrent Execution)
-    setTimeout(() => {
-      setPipelineState("running_models");
-      
-      // OpenAI Latency Count (Target: 1.24s)
-      const opTarget = MODELS[0].defaultLatency;
-      let opVal = 0;
-      openaiTimer = setInterval(() => {
-        if (opVal >= opTarget) {
-          clearInterval(openaiTimer);
-          setOpenaiState("done");
-        } else {
-          opVal += 0.1;
-          setOpenaiLatency(parseFloat(opVal.toFixed(2)));
-        }
-      }, 100);
+    const storage = isGuest ? sessionStorage : localStorage;
 
-      // Claude Latency Count (Target: 1.68s)
-      const clTarget = MODELS[1].defaultLatency;
-      let clVal = 0;
-      claudeTimer = setInterval(() => {
-        if (clVal >= clTarget) {
-          clearInterval(claudeTimer);
-          setClaudeState("done");
-        } else {
-          clVal += 0.1;
-          setClaudeLatency(parseFloat(clVal.toFixed(2)));
-        }
-      }, 100);
-
-      // Gemini Latency Count (Target: 0.98s or Fail instantly)
-      const gemTarget = MODELS[2].defaultLatency;
-      let gemVal = 0;
-      if (!geminiFails) {
-        geminiTimer = setInterval(() => {
-          if (gemVal >= gemTarget) {
-            clearInterval(geminiTimer);
-            setGeminiState("done");
+    // Load keys
+    const savedKeys = storage.getItem("orchestrator_keys");
+    if (savedKeys) {
+      try {
+        const parsed = JSON.parse(savedKeys);
+        setApiKeys(parsed);
+        // Pre-validate loaded keys
+        const initialValidations: Record<string, "empty" | "valid" | "invalid"> = {};
+        Object.keys(MODEL_TEMPLATES).forEach((k) => {
+          const val = parsed[k] || "";
+          if (val === "") {
+            initialValidations[k] = "empty";
           } else {
-            gemVal += 0.1;
-            setGeminiLatency(parseFloat(gemVal.toFixed(2)));
+            initialValidations[k] = MODEL_TEMPLATES[k].regex.test(val) ? "valid" : "invalid";
           }
-        }, 100);
-      } else {
-        setGeminiState("failed");
-        setGeminiLatency(0.12);
+        });
+        setKeyValidationStates(initialValidations);
+      } catch (e) {
+        console.error("Failed to parse saved keys", e);
       }
-    }, 800);
+    }
 
-    // Step 2: Running -> Evaluating (Triggered after longest model completes, ~1.8s)
-    setTimeout(() => {
-      setPipelineState("evaluating");
-    }, 2800);
-
-    // Step 3: Evaluating -> Saving to PostgreSQL
-    setTimeout(() => {
-      setPipelineState("saving");
-    }, 4300);
-
-    // Step 4: Saving -> Completed
-    setTimeout(() => {
-      setPipelineState("completed");
-      setMessages(prev => [
-        ...prev,
-        {
-          role: "assistant",
-          content: geminiFails ? SYNTHESIZED_RESPONSE_FALLBACK : SYNTHESIZED_RESPONSE_SUCCESS,
-          isFallback: geminiFails
+    // Load chats
+    const savedChats = storage.getItem("orchestrator_chats");
+    if (savedChats) {
+      try {
+        const parsedChats = JSON.parse(savedChats);
+        setChats(parsedChats);
+        if (parsedChats.length > 0) {
+          setActiveChatId(parsedChats[0].id);
         }
-      ]);
-    }, 5000);
+      } catch (e) {
+        console.error("Failed to parse saved chats", e);
+      }
+    }
+
+    const savedCounter = storage.getItem("orchestrator_chat_counter");
+    if (savedCounter) {
+      setNextChatCounter(parseInt(savedCounter, 10));
+    }
+  }, []);
+
+  // Sync state helpers
+  const saveStateToStorage = (updatedChats: Chat[], updatedKeys: Record<string, string>, counter = nextChatCounter) => {
+    const storage = user ? localStorage : sessionStorage;
+    storage.setItem("orchestrator_chats", JSON.stringify(updatedChats));
+    storage.setItem("orchestrator_keys", JSON.stringify(updatedKeys));
+    storage.setItem("orchestrator_chat_counter", counter.toString());
   };
 
-  const handleResetChat = () => {
-    setPipelineState("idle");
-    setMessages([]);
-    setOpenaiState("idle");
-    setClaudeState("idle");
-    setGeminiState("idle");
-    setOpenaiLatency(0);
-    setClaudeLatency(0);
-    setGeminiLatency(0);
+  // Auto-scroll handler
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chats, pipelineState, activeChatId]);
+
+  // Handle worker selection limit according to choose number of workers
+  const handleToggleWorker = (modelId: string) => {
+    if (selectedWorkers.includes(modelId)) {
+      setSelectedWorkers(selectedWorkers.filter((id) => id !== modelId));
+    } else {
+      if (selectedWorkers.length >= numWorkers) {
+        // Remove the oldest selected worker to make room
+        setSelectedWorkers([...selectedWorkers.slice(1), modelId]);
+      } else {
+        setSelectedWorkers([...selectedWorkers, modelId]);
+      }
+    }
   };
+
+  // Google Login Mocks
+  const handleGoogleLogin = () => {
+    const mockUser = { name: "Mehul Arora", email: "mehul@example.com" };
+    setUser(mockUser);
+    sessionStorage.setItem("is_logged_in", "true");
+    // Migrate session chats/keys to local storage so they persist permanently
+    localStorage.setItem("orchestrator_chats", JSON.stringify(chats));
+    localStorage.setItem("orchestrator_keys", JSON.stringify(apiKeys));
+    localStorage.setItem("orchestrator_chat_counter", nextChatCounter.toString());
+  };
+
+  const handleSignOut = () => {
+    setUser(null);
+    sessionStorage.removeItem("is_logged_in");
+    sessionStorage.removeItem("orchestrator_chats");
+    sessionStorage.removeItem("orchestrator_keys");
+    sessionStorage.removeItem("orchestrator_chat_counter");
+    // Reset core states to defaults (no chats, empty keys)
+    setChats([]);
+    setActiveChatId(null);
+    setNextChatCounter(1);
+    setApiKeys({
+      openai: "",
+      claude: "",
+      gemini: "",
+      deepseek: "",
+      mistral: ""
+    });
+    setKeyValidationStates({
+      openai: "empty",
+      claude: "empty",
+      gemini: "empty",
+      deepseek: "empty",
+      mistral: "empty"
+    });
+  };
+
+  // API Key Typing Validation
+  const handleKeyChange = (provider: string, value: string) => {
+    const updated = { ...apiKeys, [provider]: value };
+    setApiKeys(updated);
+
+    // Validation
+    const state = value === "" ? "empty" : MODEL_TEMPLATES[provider].regex.test(value) ? "valid" : "invalid";
+    setKeyValidationStates((prev) => ({ ...prev, [provider]: state }));
+  };
+
+  // ==================== SIDEBAR CHAT CREATION & EDITING ====================
+
+  const handleNewChat = () => {
+    const newId = `chat_${Date.now()}`;
+    const newChatTitle = `Chat ${nextChatCounter}`;
+    
+    // Set up base statistics representing clean state
+    const initialStats: Record<string, any> = {};
+    Object.keys(MODEL_TEMPLATES).forEach((k) => {
+      initialStats[k] = {
+        latency: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        cost: 0,
+        status: "idle",
+        rawResponse: ""
+      };
+    });
+
+    const newChat: Chat = {
+      id: newId,
+      title: newChatTitle,
+      messages: [],
+      modelStats: initialStats
+    };
+
+    const updatedChats = [newChat, ...chats];
+    const newCounter = nextChatCounter + 1;
+    
+    setChats(updatedChats);
+    setNextChatCounter(newCounter);
+    setActiveChatId(newId);
+    setPipelineState("idle");
+    setActiveErrorMessage(null);
+
+    saveStateToStorage(updatedChats, apiKeys, newCounter);
+    setSidebarOpen(false); // Close sidebar drawer on mobile
+  };
+
+  const handleStartEditingTitle = (chatId: string, currentTitle: string) => {
+    setEditingChatId(chatId);
+    setEditingChatTitle(currentTitle);
+  };
+
+  const handleSaveChatTitle = (chatId: string) => {
+    if (!editingChatTitle.trim()) return;
+    const updatedChats = chats.map((c) => (c.id === chatId ? { ...c, title: editingChatTitle } : c));
+    setChats(updatedChats);
+    setEditingChatId(null);
+    saveStateToStorage(updatedChats, apiKeys);
+  };
+
+  const handleDeleteChat = (chatId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const updatedChats = chats.filter((c) => c.id !== chatId);
+    setChats(updatedChats);
+    if (activeChatId === chatId) {
+      setActiveChatId(updatedChats.length > 0 ? updatedChats[0].id : null);
+    }
+    saveStateToStorage(updatedChats, apiKeys);
+  };
+
+  // ==================== CORE ORCHESTRATION PIPELINE SIMULATOR ====================
+
+  const handleTriggerOrchestrate = (queryText: string) => {
+    if (!queryText.trim()) return;
+    setActiveErrorMessage(null);
+
+    // 1. KEY VALIDATION
+    // Determine which keys are active (selected workers + selected evaluator)
+    const requiredProviders = Array.from(new Set([...selectedWorkers, selectedEvaluator]));
+    const invalidProviders: string[] = [];
+
+    requiredProviders.forEach((prov) => {
+      const key = apiKeys[prov];
+      const isValid = MODEL_TEMPLATES[prov].regex.test(key);
+      if (!isValid) {
+        invalidProviders.push(MODEL_TEMPLATES[prov].name);
+      }
+    });
+
+    if (invalidProviders.length > 0) {
+      setActiveErrorMessage(
+        `Error: Invalid or missing API Key for: ${invalidProviders.join(", ")}. Please configure valid keys in the BYOK settings.`
+      );
+      setKeysModalOpen(true); // Proactively open modal to let them fix it
+      return;
+    }
+
+    // 2. RETRIEVE OR INITIALIZE CHAT
+    let currentChatId = activeChatId;
+    let updatedChats = [...chats];
+
+    if (!currentChatId) {
+      // Create first chat automatically if none exists
+      const newId = `chat_${Date.now()}`;
+      const newChatTitle = `Chat ${nextChatCounter}`;
+      
+      const initialStats: Record<string, any> = {};
+      Object.keys(MODEL_TEMPLATES).forEach((k) => {
+        initialStats[k] = {
+          latency: 0,
+          inputTokens: 0,
+          outputTokens: 0,
+          cost: 0,
+          status: "idle",
+          rawResponse: ""
+        };
+      });
+
+      const newChat: Chat = {
+        id: newId,
+        title: newChatTitle,
+        messages: [],
+        modelStats: initialStats
+      };
+
+      updatedChats = [newChat];
+      currentChatId = newId;
+      setNextChatCounter(nextChatCounter + 1);
+      setActiveChatId(newId);
+    }
+
+    // Add user message to active chat
+    const targetChatIndex = updatedChats.findIndex((c) => c.id === currentChatId);
+    if (targetChatIndex === -1) return;
+
+    const userMessage: Message = { role: "user", content: queryText };
+    updatedChats[targetChatIndex].messages = [...updatedChats[targetChatIndex].messages, userMessage];
+
+    // Reset input box
+    setSearchQuery("");
+    setChats(updatedChats);
+    setPipelineState("running");
+
+    // Initialize active stats for selected models on this query
+    const statsCopy = { ...updatedChats[targetChatIndex].modelStats };
+    selectedWorkers.forEach((w) => {
+      statsCopy[w] = {
+        ...statsCopy[w],
+        status: "running",
+        latency: 0.1,
+        inputTokens: 0,
+        outputTokens: 0,
+        cost: 0,
+        rawResponse: ""
+      };
+    });
+    // Set non-selected models back to idle
+    Object.keys(MODEL_TEMPLATES).forEach((k) => {
+      if (!selectedWorkers.includes(k) && k !== selectedEvaluator) {
+        statsCopy[k] = {
+          ...statsCopy[k],
+          status: "idle",
+          latency: 0,
+          inputTokens: 0,
+          outputTokens: 0,
+          cost: 0,
+          rawResponse: ""
+        };
+      }
+    });
+
+    updatedChats[targetChatIndex].modelStats = statsCopy;
+    setChats(updatedChats);
+
+    // 3. SIMULATED API DISPATCH & DUMMY CALCULATION
+    setTimeout(() => {
+      // Simulate concurrent completion
+      const updatedChatsDone = [...updatedChats];
+      const activeChat = updatedChatsDone[targetChatIndex];
+      const finalStats = { ...activeChat.modelStats };
+
+      // Calculate tokens & costs dynamically
+      selectedWorkers.forEach((w) => {
+        const config = MODEL_TEMPLATES[w];
+        const inputT = Math.floor(Math.random() * 150) + 250;  // 250 - 400 tokens
+        const outputT = Math.floor(Math.random() * 300) + 400; // 400 - 700 tokens
+        
+        // Cost: (InputT * rate/1k) + (OutputT * rate/1k)
+        const costVal = (inputT * (config.inputCostPer1K / 1000)) + (outputT * (config.outputCostPer1K / 1000));
+        const latencyVal = parseFloat((Math.random() * 0.8 + 0.6).toFixed(2)); // 0.6s to 1.4s
+
+        finalStats[w] = {
+          status: "done",
+          latency: latencyVal,
+          inputTokens: inputT,
+          outputTokens: outputT,
+          cost: parseFloat(costVal.toFixed(6)),
+          rawResponse: config.rawResponseTemplate
+        };
+      });
+
+      // Calculate evaluator cost
+      const evalConfig = MODEL_TEMPLATES[selectedEvaluator];
+      const evalInputT = Math.floor(Math.random() * 100) + 150;
+      const evalOutputT = Math.floor(Math.random() * 200) + 300;
+      const evalCostVal = (evalInputT * (evalConfig.inputCostPer1K / 1000)) + (evalOutputT * (evalConfig.outputCostPer1K / 1000));
+      const evalLatencyVal = parseFloat((Math.random() * 0.5 + 0.4).toFixed(2));
+
+      finalStats[selectedEvaluator] = {
+        status: "done",
+        latency: evalLatencyVal,
+        inputTokens: finalStats[selectedEvaluator]?.inputTokens 
+          ? finalStats[selectedEvaluator].inputTokens + evalInputT 
+          : evalInputT,
+        outputTokens: finalStats[selectedEvaluator]?.outputTokens 
+          ? finalStats[selectedEvaluator].outputTokens + evalOutputT 
+          : evalOutputT,
+        cost: parseFloat(((finalStats[selectedEvaluator]?.cost || 0) + evalCostVal).toFixed(6)),
+        rawResponse: evalConfig.rawResponseTemplate
+      };
+
+      // Synthesis Builder based on which evaluator was selected
+      const synthesisTitle = `### ${evalConfig.name} Evaluator Synthesized Response\n`;
+      const synthesisBody = `This report synthesizes information gathered concurrently from **${selectedWorkers.map(id => MODEL_TEMPLATES[id].name).join(", ")}** workers.
+
+#### 1. Consolidation Matrix
+The sorting profiles show MergeSort stability matches key requirements. Cache optimization favors QuickSort for memory arrays.
+
+#### 2. Model Specific Specialties Integrated
+${selectedWorkers.map(id => `* **${MODEL_TEMPLATES[id].name}**: ${MODEL_TEMPLATES[id].strength}`).join("\n")}
+
+#### 3. Recommended Path
+For primitive memory architectures, deploy QuickSort (median-of-three pivot to avoid worst cases). If records have metadata components, deploy MergeSort to preserve stability.`;
+
+      const assistantMessage: Message = {
+        role: "assistant",
+        content: synthesisTitle + synthesisBody
+      };
+
+      activeChat.messages = [...activeChat.messages, assistantMessage];
+      activeChat.modelStats = finalStats;
+
+      setChats(updatedChatsDone);
+      setPipelineState("completed");
+      saveStateToStorage(updatedChatsDone, apiKeys);
+    }, 2200);
+  };
+
+  // ==================== CALCULATION & SELECTORS ====================
+
+  // Select active chat object
+  const activeChat = chats.find((c) => c.id === activeChatId) || null;
+
+  // Calculate Cumulative Total Cost for all chats in history
+  const calculateTotalUserCost = () => {
+    return chats.reduce((total, chat) => {
+      const statsSum = Object.values(chat.modelStats).reduce((sum, stats) => sum + (stats.cost || 0), 0);
+      return total + statsSum;
+    }, 0);
+  };
+
+  // Currently visible right panel cards
+  // Users want to show ONLY the cards of selected worker models and the evaluator model
+  const activeRightSideCardIds = Array.from(new Set([...selectedWorkers, selectedEvaluator]));
+
+  // Auto-title settings config text
+  const currentAutoTitleModelName = MODEL_TEMPLATES[autoTitleModel]?.name || "Mistral Large";
 
   return (
-    <div className="flex h-screen w-full bg-[#09090b] text-zinc-100 overflow-hidden font-sans antialiased">
+    <div className="flex h-screen w-full bg-[#08080a] text-zinc-200 overflow-hidden font-sans antialiased">
       
       {/* ==================== LEFT SIDEBAR ==================== */}
+      {/* Backdrop for mobile */}
+      {sidebarOpen && (
+        <div 
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+        />
+      )}
+
       <aside 
-        className={`flex flex-col border-r border-zinc-800 bg-[#0e0e11] transition-all duration-300 ${
-          sidebarOpen ? "w-64" : "w-0 -translate-x-full md:w-16 md:translate-x-0"
-        } shrink-0 overflow-hidden`}
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col w-72 border-r border-zinc-800/80 bg-[#0c0c0e] transition-transform duration-300 transform lg:translate-x-0 lg:static shrink-0 overflow-hidden ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
       >
-        {/* Brand Header */}
-        <div className="flex h-16 items-center px-4 border-b border-zinc-800 gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-600 text-white font-bold shadow-md shadow-violet-500/20">
-            Ω
-          </div>
-          {sidebarOpen && (
-            <div className="flex flex-col">
-              <span className="font-semibold tracking-tight text-white leading-none">ApexRouter</span>
-              <span className="text-[10px] text-zinc-400 font-mono mt-0.5">Orchestrator v1.0</span>
+        {/* Brand & Auth Area */}
+        <div className="flex flex-col border-b border-zinc-800/80 bg-[#09090b] p-4 gap-4">
+          
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-600 text-white font-black shadow-md shadow-violet-500/20">
+                Ω
+              </div>
+              <div className="flex flex-col">
+                <span className="font-bold text-sm tracking-tight text-white leading-none">ApexRouter</span>
+                <span className="text-[10px] text-zinc-500 font-mono mt-0.5">Orchestrator v1.2</span>
+              </div>
             </div>
+
+            {/* Mobile Close Button */}
+            <button 
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden p-1 text-zinc-500 hover:text-white"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* User Sign-In Block */}
+          <div className="pt-1.5">
+            {user ? (
+              <div className="flex items-center justify-between bg-zinc-900/50 border border-zinc-800 p-2.5 rounded-xl">
+                <div className="flex items-center gap-2">
+                  <div className="h-7 w-7 rounded-full bg-violet-600/30 border border-violet-500/50 flex items-center justify-center text-xs font-bold text-violet-300">
+                    MA
+                  </div>
+                  <div className="text-left">
+                    <p className="text-xs font-bold text-zinc-200">{user.name}</p>
+                    <p className="text-[9px] text-zinc-500 font-mono truncate max-w-[120px]">{user.email}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={handleSignOut}
+                  className="text-[10px] text-zinc-500 hover:text-red-400 font-semibold px-2 py-1 rounded hover:bg-red-500/10 transition"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <button 
+                  onClick={handleGoogleLogin}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 py-2 px-3 text-xs font-bold text-zinc-300 hover:text-white transition duration-200"
+                >
+                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.85z" fill="#FBBC05" />
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.85c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+                  </svg>
+                  <span>Sign in with Google</span>
+                </button>
+                <div className="flex justify-between items-center px-1 text-[9px] text-zinc-500 font-mono">
+                  <span>Session: Guest Mode</span>
+                  <span className="text-amber-500/90 font-bold">Wipes on close</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* New Thread Action Button */}
+        <div className="p-3">
+          <button
+            onClick={handleNewChat}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 hover:bg-violet-500 hover:shadow-violet-600/10 py-2.5 px-3 text-xs font-bold text-white transition-all duration-200"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+              <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
+            </svg>
+            <span>New Conversation</span>
+          </button>
+        </div>
+
+        {/* Chat List Scroll Container */}
+        <div className="flex-1 overflow-y-auto px-2 py-2 space-y-1 scrollbar-thin">
+          <div className="flex items-center justify-between px-2 mb-2">
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Conversations</span>
+            <span className="text-[10px] text-zinc-600 font-mono">({chats.length})</span>
+          </div>
+
+          {chats.length === 0 ? (
+            <div className="text-center py-8 px-4 text-xs text-zinc-600 italic">
+              No threads active.<br />Click New Conversation above.
+            </div>
+          ) : (
+            chats.map((c) => {
+              const isActive = c.id === activeChatId;
+              const isEditing = editingChatId === c.id;
+
+              return (
+                <div
+                  key={c.id}
+                  onClick={() => {
+                    if (!isEditing) {
+                      setActiveChatId(c.id);
+                      setPipelineState("completed");
+                      setActiveErrorMessage(null);
+                    }
+                  }}
+                  className={`group relative flex items-center justify-between w-full px-3 py-2.5 rounded-xl text-left border cursor-pointer transition ${
+                    isActive
+                      ? "bg-zinc-900 border-zinc-800 text-white font-semibold shadow-inner shadow-black/40"
+                      : "border-transparent hover:bg-zinc-900/30 text-zinc-400 hover:text-zinc-200"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 truncate flex-1 mr-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-3.5 h-3.5 text-zinc-500 shrink-0">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a.598.598 0 0 1-.655-.077.598.598 0 0 1-.165-.63l.81-2.8a7.197 7.197 0 0 1-1.4-3.713C4 16.556 8.03 12.875 13 12.875c4.97 0 9 3.681 9 8.25Z" />
+                    </svg>
+
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editingChatTitle}
+                        onChange={(e) => setEditingChatTitle(e.target.value)}
+                        onBlur={() => handleSaveChatTitle(c.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleSaveChatTitle(c.id);
+                          if (e.key === "Escape") setEditingChatId(null);
+                        }}
+                        autoFocus
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-full bg-zinc-950 text-xs px-1.5 py-0.5 border border-violet-500 rounded text-white focus:outline-none"
+                      />
+                    ) : (
+                      <span className="text-xs truncate">{c.title}</span>
+                    )}
+                  </div>
+
+                  {/* Actions Visible on Hover */}
+                  {!isEditing && (
+                    <div className="absolute right-2.5 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {/* Rename/Edit Button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStartEditingTitle(c.id, c.title);
+                        }}
+                        title="Rename Thread"
+                        className="text-zinc-500 hover:text-white p-0.5 rounded hover:bg-zinc-800"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3 h-3">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                        </svg>
+                      </button>
+
+                      {/* Delete Button */}
+                      <button
+                        onClick={(e) => handleDeleteChat(c.id, e)}
+                        title="Delete Thread"
+                        className="text-zinc-500 hover:text-red-400 p-0.5 rounded hover:bg-zinc-800"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3 h-3">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
 
-        {/* Action Button: New Thread */}
-        <div className="p-3">
-          <button
-            onClick={handleResetChat}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700/50 py-2.5 px-3 text-sm font-medium transition-all duration-200 hover:border-violet-500/30 group"
-          >
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              viewBox="0 0 20 20" 
-              fill="currentColor" 
-              className="h-4 w-4 text-violet-400 group-hover:text-violet-300 transition-colors"
-            >
-              <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
-            </svg>
-            {sidebarOpen && <span>New Conversation</span>}
-          </button>
-        </div>
-
-        {/* Conversations History Mock */}
-        <div className="flex-1 overflow-y-auto px-2 py-3 space-y-1 scrollbar-thin">
-          {sidebarOpen && <p className="text-[11px] font-semibold text-zinc-500 uppercase px-2 mb-2 tracking-wider">Saved Threads</p>}
-          
-          <button 
-            onClick={() => handleStartSimulation("Compare the time complexity of QuickSort vs MergeSort with code examples.")}
-            className="flex w-full items-center gap-3 px-3 py-2 rounded-lg bg-zinc-800/40 text-left border border-zinc-800 hover:border-zinc-700/50 transition group"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4 h-4 text-zinc-400 group-hover:text-violet-400">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a.598.598 0 0 1-.655-.077.598.598 0 0 1-.165-.63l.81-2.8a7.197 7.197 0 0 1-1.4-3.713C4 16.556 8.03 12.875 13 12.875c4.97 0 9 3.681 9 8.25Z" />
-            </svg>
-            {sidebarOpen && (
-              <div className="flex-1 truncate">
-                <p className="text-xs font-medium text-zinc-200 group-hover:text-white truncate">QuickSort vs MergeSort</p>
-                <p className="text-[10px] text-zinc-500 font-mono mt-0.5">3 models • 2.1s elapsed</p>
-              </div>
-            )}
-          </button>
-
-          <button className="flex w-full items-center gap-3 px-3 py-2 rounded-lg hover:bg-zinc-800/30 text-left border border-transparent hover:border-zinc-800 transition group">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4 h-4 text-zinc-500 group-hover:text-violet-400">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
-            </svg>
-            {sidebarOpen && (
-              <div className="flex-1 truncate">
-                <p className="text-xs font-medium text-zinc-400 truncate">AES-256 Key Encryption</p>
-                <p className="text-[10px] text-zinc-600 font-mono mt-0.5">Settings page • 256-bit GCM</p>
-              </div>
-            )}
-          </button>
-
-          <button className="flex w-full items-center gap-3 px-3 py-2 rounded-lg hover:bg-zinc-800/30 text-left border border-transparent hover:border-zinc-800 transition group">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-4 h-4 text-zinc-500 group-hover:text-violet-400">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
-            </svg>
-            {sidebarOpen && (
-              <div className="flex-1 truncate">
-                <p className="text-xs font-medium text-zinc-400 truncate">Database Sharding Strategies</p>
-                <p className="text-[10px] text-zinc-600 font-mono mt-0.5">1 model • 1.1s latency</p>
-              </div>
-            )}
-          </button>
-        </div>
-
-        {/* Bring Your Own Keys Indicator Block */}
-        <div className="p-3 border-t border-zinc-800 bg-[#0c0c0f]">
+        {/* Global Settings & Auto-Title configuration drawer trigger */}
+        <div className="p-3 border-t border-zinc-800 bg-[#0a0a0c]">
           <button 
             onClick={() => setKeysModalOpen(true)}
-            className="flex w-full flex-col gap-2 rounded-lg bg-zinc-900/60 border border-zinc-800 p-2.5 text-left hover:border-violet-500/40 hover:bg-zinc-900 transition duration-200"
+            className="flex w-full items-center justify-between rounded-xl bg-zinc-900/50 border border-zinc-850 p-3 hover:border-violet-500/40 hover:bg-zinc-900 transition duration-200"
           >
-            <div className="flex items-center justify-between w-full">
-              <span className="text-[10px] font-bold text-violet-400 uppercase tracking-wider">BYOK API Credentials</span>
-              <span className="flex h-2 w-2 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
+            <div className="flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4 text-violet-400">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.43l-1.003.828c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.43l1.004-.827c.292-.24.437-.613.43-.991a6.936 6.936 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.645-.869L9.594 3.94Z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+              </svg>
+              <div className="text-left">
+                <p className="text-xs font-semibold text-zinc-300">Settings & Keys</p>
+                <p className="text-[9px] text-zinc-500 font-mono truncate max-w-[130px]">Workers, Eval, Titles</p>
+              </div>
             </div>
-            {sidebarOpen && (
-              <>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono">
-                    <span>OpenAI API Key</span>
-                    <span className="text-emerald-500 font-bold">✓ Encrypted</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono">
-                    <span>Claude Key</span>
-                    <span className="text-emerald-500 font-bold">✓ Encrypted</span>
-                  </div>
-                  <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono">
-                    <span>Gemini Key</span>
-                    <span className="text-emerald-500 font-bold">✓ Encrypted</span>
-                  </div>
-                </div>
-                <div className="flex items-center justify-center gap-1.5 text-xs text-violet-400 font-semibold mt-1">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-3.5 h-3.5">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
-                  </svg>
-                  <span>Manage Keys</span>
-                </div>
-              </>
-            )}
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-3.5 h-3.5 text-zinc-500">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+            </svg>
           </button>
         </div>
 
         {/* Database Status Panel */}
-        <div className="p-3 border-t border-zinc-800 bg-[#09090b]">
-          <div className="flex items-center justify-between">
+        <div className="p-3 border-t border-zinc-800/80 bg-[#09090b]">
+          <div className="flex items-center justify-between text-[11px]">
             <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-emerald-500"></span>
-              {sidebarOpen && <span className="text-xs text-zinc-400 font-semibold">Postgres Online</span>}
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="text-zinc-400 font-semibold">PostgreSQL Database Sync</span>
             </div>
-            {sidebarOpen && <span className="text-[10px] text-zinc-500 font-mono">Drizzle ORM</span>}
           </div>
-          {sidebarOpen && (
-            <div className="grid grid-cols-2 gap-1 mt-2 text-[10px] text-zinc-500 font-mono">
-              <div>Latency: <span className="text-zinc-300">4ms</span></div>
-              <div>SSL: <span className="text-zinc-300">Enabled</span></div>
-            </div>
-          )}
+          <p className="text-[9px] text-zinc-500 font-mono mt-1">
+            Status: {user ? "Authenticated (Synced)" : "Guest Session (Local storage)"}
+          </p>
         </div>
       </aside>
 
       {/* ==================== CENTER MAIN CONTAINER ==================== */}
-      <main className="flex flex-col flex-1 bg-[#09090b] relative overflow-hidden">
+      <main className="flex flex-col flex-1 bg-[#08080a] relative overflow-hidden">
         
         {/* Top Navbar */}
-        <header className="flex h-16 items-center justify-between px-6 border-b border-zinc-800 bg-[#09090b]/80 backdrop-blur-md sticky top-0 z-30">
+        <header className="flex h-16 items-center justify-between px-4 sm:px-6 border-b border-zinc-800/80 bg-[#08080a]/80 backdrop-blur-md sticky top-0 z-30">
           <div className="flex items-center gap-3">
+            {/* Sidebar toggle for mobile */}
             <button 
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800 transition"
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-900 transition"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-5 h-5">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5.5 h-5.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
               </svg>
             </button>
+            
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-zinc-300">Thread:</span>
-              <span className="text-sm font-semibold text-white">
-                {pipelineState === "idle" ? "New Workspace" : "Comparison: QuickSort vs MergeSort"}
+              <span className="text-xs sm:text-sm font-semibold text-white">
+                {activeChat ? activeChat.title : "No Thread Active"}
               </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            {/* Gemini Error Simulator Toggle */}
-            <div className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 py-1.5 px-3 rounded-full shadow-inner">
-              <span className="text-xs text-zinc-400 font-medium">Gemini Fail simulation</span>
-              <button 
-                onClick={() => setGeminiFails(!geminiFails)}
-                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                  geminiFails ? "bg-red-500" : "bg-zinc-700"
-                }`}
-              >
-                <span 
-                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                    geminiFails ? "translate-x-4" : "translate-x-0"
-                  }`}
-                />
-              </button>
-            </div>
+          <div className="flex items-center gap-3">
+            {/* API Key Modal Shortcut Indicator */}
+            <button
+              onClick={() => setKeysModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:bg-zinc-900 text-xs text-zinc-400 hover:text-white transition"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-3.5 h-3.5 text-violet-400">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a3 3 0 0 1-3 3m-12-6a3 3 0 0 1-3 3m12-3a3 3 0 0 1-3 3m-12 12a3 3 0 0 1-3-3m12 3a3 3 0 0 1-3-3" />
+              </svg>
+              <span className="hidden sm:inline">Settings</span>
+            </button>
 
-            {/* Right panel toggle button */}
+            {/* Metrics Toggle for Mobile/Tablet */}
             <button 
               onClick={() => setRightPanelOpen(!rightPanelOpen)}
-              className="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800 transition hidden lg:block"
+              className="text-zinc-400 hover:text-white p-2 rounded-xl hover:bg-zinc-900 transition flex items-center gap-2 border border-zinc-800 bg-zinc-900/50"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-5 h-5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z" />
               </svg>
+              <span className="text-xs font-semibold hidden md:inline">Inspect Metrics</span>
             </button>
           </div>
         </header>
 
+        {/* Dynamic Global Key Validation Error Banner */}
+        {activeErrorMessage && (
+          <div className="bg-red-500/10 border-b border-red-500/30 px-6 py-3 text-xs text-red-400 font-semibold flex items-center gap-2.5">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-4.5 h-4.5 text-red-500">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+            </svg>
+            <span>{activeErrorMessage}</span>
+          </div>
+        )}
+
         {/* Chat / Simulation Area */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-8 scrollbar-thin">
-          
-          {pipelineState === "idle" ? (
+        <div 
+          ref={chatContainerRef}
+          className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 scrollbar-thin"
+        >
+          {!activeChat || activeChat.messages.length === 0 ? (
             /* ==================== IDLE STATE: LANDING LAYOUT ==================== */
-            <div className="max-w-2xl mx-auto py-12 space-y-12">
+            <div className="max-w-xl mx-auto py-16 space-y-10 text-center">
               
               {/* Main Landing Header */}
-              <div className="text-center space-y-4">
-                <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-white">
-                  Consolidated AI, <br />
+              <div className="space-y-4">
+                <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
+                  Consolidated AI Synthesizer<br />
                   <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-fuchsia-400 to-indigo-400">
-                    Synthesized in Real-Time
+                    Dual Evaluation Gateway
                   </span>
                 </h1>
-                <p className="text-base text-zinc-400 max-w-md mx-auto">
-                  A high-performance orchestration gateway. Query multiple models concurrently, synthesize responses through an evaluator brain, and persist metadata.
+                <p className="text-xs sm:text-sm text-zinc-400 max-w-md mx-auto leading-relaxed">
+                  Query worker models concurrently, synthesize responses through an evaluator model, and persist historical metrics in Drizzle Postgres.
                 </p>
               </div>
 
-              {/* Feature grid tags */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                <div className="flex items-center gap-2 p-3 rounded-xl border border-zinc-800 bg-[#0e0e11]/50 hover:bg-[#0e0e11] transition duration-200">
-                  <div className="p-1.5 rounded-lg bg-violet-500/10 text-violet-400">
-                    ⚡
-                  </div>
-                  <div className="text-left">
-                    <p className="text-xs font-semibold text-zinc-200">Concurrent Run</p>
-                    <p className="text-[10px] text-zinc-500">Promise.allSettled()</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 p-3 rounded-xl border border-zinc-800 bg-[#0e0e11]/50 hover:bg-[#0e0e11] transition duration-200">
-                  <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
-                    🔑
-                  </div>
-                  <div className="text-left">
-                    <p className="text-xs font-semibold text-zinc-200">BYOK Router</p>
-                    <p className="text-[10px] text-zinc-500">AES-256 Encrypted</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 p-3 rounded-xl border border-zinc-800 bg-[#0e0e11]/50 hover:bg-[#0e0e11] transition duration-200">
-                  <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-400">
-                    🧠
-                  </div>
-                  <div className="text-left">
-                    <p className="text-xs font-semibold text-zinc-200">Synthesizer</p>
-                    <p className="text-[10px] text-zinc-500">Dual model evaluation</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 p-3 rounded-xl border border-zinc-800 bg-[#0e0e11]/50 hover:bg-[#0e0e11] transition duration-200">
-                  <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400">
-                    🗄️
-                  </div>
-                  <div className="text-left">
-                    <p className="text-xs font-semibold text-zinc-200">PostgreSQL DB</p>
-                    <p className="text-[10px] text-zinc-500">Drizzle schema tracing</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 p-3 rounded-xl border border-zinc-800 bg-[#0e0e11]/50 hover:bg-[#0e0e11] transition duration-200 col-span-2 md:col-span-1">
-                  <div className="p-1.5 rounded-lg bg-pink-500/10 text-pink-400">
-                    📊
-                  </div>
-                  <div className="text-left">
-                    <p className="text-xs font-semibold text-zinc-200">Cost & Latency</p>
-                    <p className="text-[10px] text-zinc-500">Per-provider metrics</p>
-                  </div>
+              {/* Status information tags */}
+              <div className="bg-zinc-900/40 border border-zinc-800 rounded-2xl p-4 text-left max-w-md mx-auto space-y-2.5">
+                <p className="text-xs font-bold text-violet-400 uppercase tracking-wider">Current Pipeline Configuration</p>
+                <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-zinc-400">
+                  <div>Workers Selectable: <span className="text-zinc-200">{numWorkers} Limit</span></div>
+                  <div>Active Workers: <span className="text-zinc-200">{selectedWorkers.map(id => MODEL_TEMPLATES[id]?.name).join(", ")}</span></div>
+                  <div className="col-span-2">Evaluator Model: <span className="text-rose-400 font-bold">{MODEL_TEMPLATES[selectedEvaluator]?.name}</span></div>
+                  <div className="col-span-2">Auto-Title Model: <span className="text-zinc-200">{currentAutoTitleModelName}</span></div>
                 </div>
               </div>
 
               {/* Clickable Quick-Start Prompts */}
-              <div className="space-y-3">
-                <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider text-left">Click a sample to test the pipeline</p>
+              <div className="space-y-3 max-w-lg mx-auto text-left">
+                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider px-1">Selected Sample Prompts</p>
                 
                 <button
-                  onClick={() => handleStartSimulation("Compare the time complexity of QuickSort vs MergeSort with code examples.")}
-                  className="w-full text-left p-4 rounded-xl border border-zinc-800 bg-[#0e0e11]/40 hover:bg-[#0e0e11] hover:border-violet-500/40 transition duration-200 group"
+                  onClick={() => handleTriggerOrchestrate("Compare the time complexity of QuickSort vs MergeSort with code examples.")}
+                  className="w-full text-left p-3.5 rounded-xl border border-zinc-800 bg-[#0c0c0f]/50 hover:bg-[#0c0c0f] hover:border-violet-500/40 transition duration-200 group"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-zinc-200 font-medium group-hover:text-white">Compare the time complexity of QuickSort vs MergeSort with code examples.</span>
+                    <span className="text-xs sm:text-sm text-zinc-300 font-medium group-hover:text-white">Compare the time complexity of QuickSort vs MergeSort with code examples.</span>
                     <span className="text-xs text-violet-400 group-hover:translate-x-1 transition duration-200 font-bold">→</span>
                   </div>
-                  <p className="text-xs text-zinc-500 mt-1">Triggers concurrent execution across GPT-4o, Claude, and Gemini 1.5.</p>
+                  <p className="text-[10px] text-zinc-500 mt-1">Runs concurrent benchmark trace inside the workspace container.</p>
                 </button>
 
                 <button
-                  onClick={() => handleStartSimulation("How do I store API keys securely in a BYOK architecture using AES-256 encryption?")}
-                  className="w-full text-left p-4 rounded-xl border border-zinc-800 bg-[#0e0e11]/40 hover:bg-[#0e0e11] hover:border-violet-500/40 transition duration-200 group"
+                  onClick={() => handleTriggerOrchestrate("Write a Next.js API route that encrypts BYOK credentials with AES-256.")}
+                  className="w-full text-left p-3.5 rounded-xl border border-zinc-800 bg-[#0c0c0f]/50 hover:bg-[#0c0c0f] hover:border-violet-500/40 transition duration-200 group"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-zinc-200 font-medium group-hover:text-white">Write an API route that encrypts BYOK credentials with AES-256.</span>
+                    <span className="text-xs sm:text-sm text-zinc-300 font-medium group-hover:text-white">How do I securely encrypt credentials in Next.js using AES-256?</span>
                     <span className="text-xs text-violet-400 group-hover:translate-x-1 transition duration-200 font-bold">→</span>
                   </div>
-                  <p className="text-xs text-zinc-500 mt-1">Checks adapter configurations, schema tables, and encryption helper logic.</p>
+                  <p className="text-[10px] text-zinc-500 mt-1">Queries Mistral, OpenAI and Claude, then runs synthesis reports.</p>
                 </button>
               </div>
 
             </div>
           ) : (
-            /* ==================== ACTIVE SIMULATION LAYOUT ==================== */
-            <div className="max-w-3xl mx-auto space-y-8">
+            /* ==================== ACTIVE CHAT MESSAGES ==================== */
+            <div className="max-w-3xl mx-auto space-y-6">
               
-              {/* User Prompt Bubble */}
-              <div className="flex gap-4 p-4 rounded-2xl bg-zinc-900/60 border border-zinc-800/80">
-                <div className="h-8 w-8 rounded-full bg-zinc-800 flex items-center justify-center font-bold text-zinc-300 text-sm shrink-0">
-                  U
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">User Request</p>
-                  <p className="text-sm text-zinc-200 leading-relaxed">
-                    {messages[0]?.content}
-                  </p>
-                </div>
-              </div>
-
-              {/* Dynamic State Machine Progress Visualizer */}
-              <div className="p-4 rounded-2xl border border-zinc-800/80 bg-zinc-950/80 shadow-md">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-xs font-bold text-violet-400 uppercase tracking-wider">Orchestration pipeline flow</span>
-                  <span className="text-xs font-mono text-zinc-500">Active status tracker</span>
-                </div>
-
-                <div className="grid grid-cols-4 gap-2 relative">
-                  
-                  {/* Step 1: Dispatching */}
-                  <div className={`p-2.5 rounded-lg border text-center transition-all duration-300 ${
-                    pipelineState === "sending"
-                      ? "border-violet-500 bg-violet-500/5 text-violet-200 scale-105"
-                      : "border-emerald-500/30 bg-emerald-500/5 text-emerald-400"
-                  }`}>
-                    <div className="text-xs font-bold font-mono">STEP 1</div>
-                    <div className="text-[10px] mt-1 font-semibold">Dispatching</div>
-                    <div className="text-[9px] text-zinc-500 font-mono mt-0.5">DB Message Save</div>
-                  </div>
-
-                  {/* Step 2: Concurrent API Dispatch */}
-                  <div className={`p-2.5 rounded-lg border text-center transition-all duration-300 ${
-                    pipelineState === "running_models"
-                      ? "border-violet-500 bg-violet-500/5 text-violet-200 scale-105"
-                      : pipelineState === "evaluating" || pipelineState === "saving" || pipelineState === "completed"
-                      ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-400"
-                      : "border-zinc-800 text-zinc-500"
-                  }`}>
-                    <div className="text-xs font-bold font-mono">STEP 2</div>
-                    <div className="text-[10px] mt-1 font-semibold">API Execution</div>
-                    <div className="text-[9px] text-zinc-500 font-mono mt-0.5">Promise.allSettled</div>
-                  </div>
-
-                  {/* Step 3: Synthesis Evaluation */}
-                  <div className={`p-2.5 rounded-lg border text-center transition-all duration-300 ${
-                    pipelineState === "evaluating"
-                      ? "border-violet-500 bg-violet-500/5 text-violet-200 scale-105"
-                      : pipelineState === "saving" || pipelineState === "completed"
-                      ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-400"
-                      : "border-zinc-800 text-zinc-500"
-                  }`}>
-                    <div className="text-xs font-bold font-mono">STEP 3</div>
-                    <div className="text-[10px] mt-1 font-semibold">Evaluation</div>
-                    <div className="text-[9px] text-zinc-500 font-mono mt-0.5">Synthesizer Brain</div>
-                  </div>
-
-                  {/* Step 4: Postgres Persist */}
-                  <div className={`p-2.5 rounded-lg border text-center transition-all duration-300 ${
-                    pipelineState === "saving"
-                      ? "border-violet-500 bg-violet-500/5 text-violet-200 scale-105"
-                      : pipelineState === "completed"
-                      ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-400"
-                      : "border-zinc-800 text-zinc-500"
-                  }`}>
-                    <div className="text-xs font-bold font-mono">STEP 4</div>
-                    <div className="text-[10px] mt-1 font-semibold">Persisting</div>
-                    <div className="text-[9px] text-zinc-500 font-mono mt-0.5">Write Postgres</div>
-                  </div>
-
-                </div>
-
-                {/* Pipeline visual running line */}
-                <div className="relative mt-4 h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
+              {activeChat.messages.map((msg, index) => {
+                const isUser = msg.role === "user";
+                return (
                   <div 
-                    className="absolute h-full bg-gradient-to-r from-violet-500 via-fuchsia-500 to-emerald-500 rounded-full transition-all duration-500"
-                    style={{
-                      width: 
-                        pipelineState === "sending" ? "25%" :
-                        pipelineState === "running_models" ? "50%" :
-                        pipelineState === "evaluating" ? "75%" :
-                        pipelineState === "saving" ? "90%" :
-                        pipelineState === "completed" ? "100%" : "0%"
-                    }}
-                  />
-                </div>
-              </div>
+                    key={index}
+                    className={`flex gap-4 p-4.5 rounded-2xl border transition-all ${
+                      isUser 
+                        ? "bg-zinc-900/30 border-zinc-850/80 justify-start"
+                        : "bg-[#0c0c0f]/50 border-zinc-800/60 leading-relaxed text-sm"
+                    }`}
+                  >
+                    {/* Role Avatar */}
+                    <div className={`h-8 w-8 rounded-xl flex items-center justify-center font-bold text-xs shrink-0 ${
+                      isUser 
+                        ? "bg-zinc-800 text-zinc-300 border border-zinc-700" 
+                        : "bg-violet-600/20 text-violet-400 border border-violet-500/30"
+                    }`}>
+                      {isUser ? "U" : "Ω"}
+                    </div>
 
-              {/* Status and streaming panel */}
-              {pipelineState !== "completed" && (
-                <div className="flex flex-col items-center justify-center p-12 border border-dashed border-zinc-800 rounded-2xl bg-zinc-950/20 text-zinc-400 space-y-4">
-                  <div className="flex items-center gap-3">
-                    <svg className="animate-spin h-5 w-5 text-violet-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    {/* Message Body */}
+                    <div className="space-y-1.5 flex-1 min-w-0">
+                      <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">
+                        {isUser ? "User Query" : `${MODEL_TEMPLATES[selectedEvaluator]?.name} Evaluator Synthesis`}
+                      </p>
+                      
+                      <div className="prose prose-invert max-w-none text-zinc-200 text-xs sm:text-sm whitespace-pre-wrap leading-relaxed">
+                        {/* Custom markdown parsing for code blocks block formatting */}
+                        {msg.content.split("```").map((chunk, idx) => {
+                          const isCode = idx % 2 === 1;
+                          if (isCode) {
+                            // Extract language
+                            const lines = chunk.split("\n");
+                            const lang = lines[0] || "python";
+                            const codeContent = lines.slice(1).join("\n");
+                            return (
+                              <div key={idx} className="my-3 rounded-lg overflow-hidden border border-zinc-800 bg-[#050507]">
+                                <div className="flex items-center justify-between px-3 py-1.5 bg-zinc-900/60 text-[10px] text-zinc-500 font-mono border-b border-zinc-800">
+                                  <span>{lang} code snippet</span>
+                                  <button 
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(codeContent.trim());
+                                      alert("Code copied to clipboard!");
+                                    }}
+                                    className="hover:text-white flex items-center gap-1"
+                                  >
+                                    Copy
+                                  </button>
+                                </div>
+                                <pre className="p-3.5 overflow-x-auto text-[11px] font-mono leading-relaxed text-zinc-300">
+                                  <code>{codeContent.trim()}</code>
+                                </pre>
+                              </div>
+                            );
+                          }
+                          return <span key={idx}>{chunk}</span>;
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Running Loader state inside message container */}
+              {pipelineState === "running" && (
+                <div className="flex gap-4 p-4.5 rounded-2xl border border-zinc-800/60 bg-[#0c0c0f]/20 animate-pulse">
+                  <div className="h-8 w-8 rounded-xl bg-violet-600/10 border border-violet-500/20 flex items-center justify-center shrink-0">
+                    <svg className="animate-spin h-4 w-4 text-violet-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    <span className="font-semibold text-sm text-zinc-200">
-                      {pipelineState === "sending" && "Connecting to local PostgreSQL instance..."}
-                      {pipelineState === "running_models" && "Running models concurrently..."}
-                      {pipelineState === "evaluating" && "Synthesizing answer structure..."}
-                      {pipelineState === "saving" && "Writing records & usage costs to Postgres..."}
-                    </span>
                   </div>
-
-                  <div className="flex gap-4 text-xs font-mono">
-                    <span className={`transition-colors duration-200 ${openaiState === "running" ? "text-violet-400 animate-pulse" : openaiState === "done" ? "text-emerald-400" : "text-zinc-600"}`}>
-                      OpenAI (GPT-4o): {openaiState === "running" ? `${openaiLatency}s` : openaiState === "done" ? "1.24s (Success)" : "Waiting..."}
-                    </span>
-                    <span className={`transition-colors duration-200 ${claudeState === "running" ? "text-violet-400 animate-pulse" : claudeState === "done" ? "text-emerald-400" : "text-zinc-600"}`}>
-                      Claude (3.5 Sonnet): {claudeState === "running" ? `${claudeLatency}s` : claudeState === "done" ? "1.68s (Success)" : "Waiting..."}
-                    </span>
-                    <span className={`transition-colors duration-200 ${geminiState === "running" ? "text-violet-400 animate-pulse" : geminiState === "done" ? "text-emerald-400" : geminiState === "failed" ? "text-red-400 font-bold" : "text-zinc-600"}`}>
-                      Gemini (1.5 Pro): {geminiState === "running" ? `${geminiLatency}s` : geminiState === "done" ? "0.98s (Success)" : geminiState === "failed" ? "Failed (Bypassed)" : "Waiting..."}
-                    </span>
+                  <div className="space-y-2 flex-1">
+                    <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Orchestrator running...</p>
+                    <p className="text-xs text-zinc-400 font-medium">
+                      Querying workers ({selectedWorkers.map(id => MODEL_TEMPLATES[id]?.name).join(", ")}) concurrently. Synthesizing answers via {MODEL_TEMPLATES[selectedEvaluator]?.name}...
+                    </p>
+                    <div className="h-1.5 w-48 bg-zinc-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-violet-500 rounded-full animate-infinite-progress" style={{ width: "60%" }}></div>
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Synthesized Response Rendering */}
-              {pipelineState === "completed" && messages[1] && (
-                <div className="space-y-6">
-                  
-                  {/* Synthesis Header Bar */}
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-violet-950/20 border border-violet-500/20 text-violet-300">
-                    <div className="flex items-center gap-2">
-                      <span className="p-1 rounded bg-violet-500/20 text-xs font-bold">BRAIN</span>
-                      <span className="text-xs font-semibold">Orchestrator synthesized response</span>
-                    </div>
-                    {messages[1].isFallback && (
-                      <span className="text-[10px] font-bold bg-amber-500/20 border border-amber-500/40 text-amber-300 px-2 py-0.5 rounded uppercase">
-                        Degraded State Active
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Main synthesized Markdown output */}
-                  <div className="p-6 rounded-2xl bg-zinc-900/30 border border-zinc-800 text-zinc-300 leading-relaxed text-sm space-y-4">
-                    
-                    {/* Rendered content details */}
-                    <div className="prose prose-invert max-w-none space-y-4">
-                      
-                      {/* Section 1 */}
-                      <div>
-                        <h3 className="text-lg font-bold text-white mb-2">Synthesized Orchestration Report: QuickSort vs MergeSort</h3>
-                        <p className="text-zinc-400 text-xs italic mb-4">
-                          This report consolidates results from {messages[1].isFallback ? "GPT-4o and Claude 3.5" : "GPT-4o, Claude 3.5, and Gemini 1.5 Pro"}.
-                        </p>
-                      </div>
-
-                      {/* Warnings if fallback */}
-                      {messages[1].isFallback && (
-                        <div className="p-3 bg-red-950/20 border border-red-500/20 text-red-300 rounded-lg text-xs flex gap-2 items-start">
-                          <span className="text-sm leading-none">⚠️</span>
-                          <div>
-                            <span className="font-bold">Gemini 1.5 Pro failed to respond (API Error: 503)</span>. The orchestrator bypassed the failure using <code>Promise.allSettled()</code> and successfully synthesized the response using OpenAI and Anthropic metrics only.
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Section 2 */}
-                      <div>
-                        <h4 className="text-sm font-bold text-violet-400 uppercase tracking-wider mb-2">1. Conceptual Overview</h4>
-                        <ul className="list-disc pl-5 space-y-1 text-zinc-300">
-                          <li><strong>QuickSort</strong>: In-place, pivot-based partitioning. Average time complexity is $O(n \log n)$, but can degrade to $O(n^2)$ if pivots partition poorly. Highly space-efficient ($O(\log n)$ memory footprint).</li>
-                          <li><strong>MergeSort</strong>: Divide-and-conquer strategy that splits data in halves recursively and merges. Guarantees a stable sort with strict $O(n \log n)$ complexity, but requires $O(n)$ extra space to merge components.</li>
-                        </ul>
-                      </div>
-
-                      {/* Section 3 (Glowing comparison table) */}
-                      <div className="overflow-x-auto my-6 border border-zinc-800 rounded-lg bg-zinc-950/40">
-                        <table className="min-w-full divide-y divide-zinc-800 text-left text-xs font-mono">
-                          <thead className="bg-zinc-900/60">
-                            <tr>
-                              <th className="px-4 py-2 text-zinc-400">Metric</th>
-                              <th className="px-4 py-2 text-zinc-200">QuickSort</th>
-                              <th className="px-4 py-2 text-zinc-200">MergeSort</th>
-                              <th className="px-4 py-2 text-zinc-400">Router Recommendation</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-zinc-800">
-                            <tr>
-                              <td className="px-4 py-2 text-zinc-500 font-bold">Avg Complexity</td>
-                              <td className="px-4 py-2 text-emerald-400">$O(n \log n)$</td>
-                              <td className="px-4 py-2 text-emerald-400">$O(n \log n)$</td>
-                              <td className="px-4 py-2 text-zinc-400">Identical bounds</td>
-                            </tr>
-                            <tr>
-                              <td className="px-4 py-2 text-zinc-500 font-bold">Worst Complexity</td>
-                              <td className="px-4 py-2 text-amber-500">$O(n^2)$</td>
-                              <td className="px-4 py-2 text-emerald-400">$O(n \log n)$</td>
-                              <td className="px-4 py-2 text-zinc-400">MergeSort is guaranteed</td>
-                            </tr>
-                            <tr>
-                              <td className="px-4 py-2 text-zinc-500 font-bold">Space Required</td>
-                              <td className="px-4 py-2 text-emerald-400">$O(\log n)$ (in-place)</td>
-                              <td className="px-4 py-2 text-red-400">$O(n)$ (auxiliary)</td>
-                              <td className="px-4 py-2 text-zinc-400">QuickSort is highly efficient</td>
-                            </tr>
-                            <tr>
-                              <td className="px-4 py-2 text-zinc-500 font-bold">Stable Sort</td>
-                              <td className="px-4 py-2 text-zinc-400">No</td>
-                              <td className="px-4 py-2 text-emerald-400">Yes</td>
-                              <td className="px-4 py-2 text-zinc-400">MergeSort for object data</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {/* Code syntax block */}
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-xs text-zinc-500 font-mono px-3 py-1 bg-zinc-900 border-t border-r border-l border-zinc-800 rounded-t-lg">
-                          <span>quicksort_lomuto.py</span>
-                          <button className="hover:text-white flex items-center gap-1">
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                            </svg>
-                            Copy Code
-                          </button>
-                        </div>
-                        <pre className="p-4 rounded-b-lg border-b border-r border-l border-zinc-800 bg-[#060608] text-zinc-300 font-mono text-xs overflow-x-auto leading-relaxed">
-{`def quicksort_inplace(arr, low, high):
-    if low < high:
-        pivot_idx = partition(arr, low, high)
-        quicksort_inplace(arr, low, pivot_idx - 1)
-        quicksort_inplace(arr, pivot_idx + 1, high)
-
-def partition(arr, low, high):
-    pivot = arr[high]
-    i = low - 1
-    for j in range(low, high):
-        if arr[j] <= pivot:
-            i += 1
-            arr[i], arr[j] = arr[j], arr[i]
-    arr[i + 1], arr[high] = arr[high], arr[i + 1]
-    return i + 1`}
-                        </pre>
-                      </div>
-
-                      {/* Section 4 */}
-                      <div className="mt-4 pt-4 border-t border-zinc-800/80">
-                        <h4 className="text-sm font-bold text-violet-400 uppercase tracking-wider mb-2">Evaluator Synthesized Consensus</h4>
-                        <p className="text-zinc-300 leading-relaxed text-sm">
-                          Use <strong>QuickSort</strong> in memory-constrained environments sorting flat types like numbers where stable sorting is not required. Choose <strong>MergeSort</strong> when sorting complex object structures where relative order must be retained, or when a deterministic performance boundary is requested.
-                        </p>
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                  {/* Actions under the answer */}
-                  <div className="flex gap-3 justify-end">
-                    <button 
-                      onClick={() => {
-                        navigator.clipboard.writeText(messages[1].content);
-                        alert("Consolidated response copied to clipboard!");
-                      }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 hover:border-zinc-700 bg-zinc-900/40 text-xs text-zinc-400 hover:text-white transition duration-200"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-3.5 h-3.5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
-                      </svg>
-                      Copy Report
-                    </button>
-
-                    <button 
-                      onClick={handleResetChat}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-800 hover:border-zinc-700 bg-zinc-900/40 text-xs text-zinc-400 hover:text-white transition duration-200"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-3.5 h-3.5">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-                      </svg>
-                      Rerun Pipeline
-                    </button>
-                  </div>
-
-                </div>
-              )}
+              {/* Anchor for Auto-scroll */}
+              <div ref={messagesEndRef} />
 
             </div>
           )}
@@ -1015,25 +1037,21 @@ def partition(arr, low, high):
         </div>
 
         {/* ==================== BOTTOM INPUT AREA ==================== */}
-        <footer className="p-6 border-t border-zinc-800 bg-[#09090b]">
+        <footer className="p-4 border-t border-zinc-800/80 bg-[#08080a]">
           <div className="max-w-3xl mx-auto relative">
-            <div className="flex items-center gap-3 mb-3">
-              <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Active Router Focus:</span>
-              <div className="flex gap-2">
-                <span className="text-[10px] px-2 py-0.5 rounded-md border border-zinc-800 bg-zinc-900 text-zinc-400">Academic Mode</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-md border border-zinc-800 bg-zinc-900 text-zinc-400">Strict Code Synthesis</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-md border border-violet-800/40 bg-violet-950/20 text-violet-400 font-semibold">Postgres Logging</span>
-              </div>
-            </div>
-
-            {/* Simulated Input form */}
-            <div className="relative flex items-center rounded-2xl border border-zinc-800 bg-[#0d0d10] focus-within:border-violet-500/60 transition-all shadow-lg p-2.5 gap-2.5">
+            
+            {/* Input Bar */}
+            <div className="relative flex items-center rounded-xl border border-zinc-800 bg-[#0d0d10] focus-within:border-violet-500/60 focus-within:ring-1 focus-within:ring-violet-500/10 transition-all p-2 gap-2.5">
               
-              <div className="p-1 rounded bg-zinc-800 text-zinc-400">
+              <button 
+                onClick={() => setKeysModalOpen(true)}
+                title="Configure Keys & Workers"
+                className="p-2 text-zinc-500 hover:text-violet-400 rounded-lg hover:bg-zinc-900 transition shrink-0"
+              >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.602 10.602Z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                 </svg>
-              </div>
+              </button>
 
               <input
                 type="text"
@@ -1042,134 +1060,146 @@ def partition(arr, low, high):
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
-                    handleStartSimulation(searchQuery);
+                    handleTriggerOrchestrate(searchQuery);
                   }
                 }}
-                disabled={pipelineState !== "idle" && pipelineState !== "completed"}
-                className="flex-1 bg-transparent text-sm text-zinc-100 placeholder-zinc-500 outline-none disabled:text-zinc-500"
+                disabled={pipelineState === "running"}
+                className="flex-1 bg-transparent text-xs sm:text-sm text-zinc-100 placeholder-zinc-500 outline-none disabled:text-zinc-500"
               />
 
               <button
-                onClick={() => handleStartSimulation(searchQuery || "Compare the time complexity of QuickSort vs MergeSort with code examples.")}
-                disabled={pipelineState !== "idle" && pipelineState !== "completed"}
-                className="h-10 px-4 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-medium text-xs shadow-md shadow-violet-500/20 active:scale-95 transition-all disabled:opacity-40"
+                onClick={() => handleTriggerOrchestrate(searchQuery || "Compare the time complexity of QuickSort vs MergeSort with code examples.")}
+                disabled={pipelineState === "running" || !searchQuery.trim()}
+                className="h-9 px-4 rounded-lg bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold text-xs shadow-md shadow-violet-500/20 active:scale-95 transition-all disabled:opacity-40"
               >
                 Orchestrate
               </button>
             </div>
             
-            <p className="text-center text-[10px] text-zinc-500 mt-3 font-mono">
-              AES-256 protected BYOK. Output written to Postgres 16 tables.
+            <p className="text-center text-[10px] text-zinc-500 mt-2.5 font-mono">
+              AES-256 encryption active • Drizzle ORM PostgreSQL persistence
             </p>
           </div>
         </footer>
 
       </main>
 
-      {/* ==================== RIGHT COMPARISON PANEL (METRICS & MOCK RESPONSES) ==================== */}
+      {/* ==================== RIGHT INSPECTOR PANEL (ONLY SELECTED WORKERS & EVALUATOR) ==================== */}
       {rightPanelOpen && (
-        <aside className="w-80 border-l border-zinc-800 bg-[#0e0e11] flex flex-col shrink-0 overflow-hidden hidden lg:flex">
+        <aside className="fixed inset-y-0 right-0 z-40 lg:static w-80 border-l border-zinc-800 bg-[#0c0c0e] flex flex-col shrink-0 overflow-hidden shadow-2xl lg:shadow-none">
           
           {/* Header */}
-          <div className="flex h-16 items-center justify-between px-4 border-b border-zinc-800">
-            <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Concurrent metrics inspector</span>
-            <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-              Promise.allSettled()
-            </span>
+          <div className="flex h-16 items-center justify-between px-4 border-b border-zinc-800 bg-[#09090b]">
+            <div className="flex flex-col text-left">
+              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Metrics Inspector</span>
+              <span className="text-[9px] text-zinc-500 font-mono">Only selected worker/eval models</span>
+            </div>
+            <button 
+              onClick={() => setRightPanelOpen(false)}
+              className="p-1 text-zinc-500 hover:text-white"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
 
-          {/* Model Statistics overview */}
+          {/* User Cumulative Total Cost & Active Chat cost */}
           <div className="p-4 border-b border-zinc-800 bg-zinc-950/30 grid grid-cols-2 gap-2 text-center">
-            <div className="p-2 rounded bg-zinc-900 border border-zinc-800/80">
-              <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Average Latency</p>
-              <p className="text-lg font-bold text-white font-mono mt-0.5">
-                {pipelineState === "completed" ? (geminiFails ? "1.46s" : "1.30s") : "0.00s"}
+            <div className="p-2 rounded bg-zinc-900/60 border border-zinc-800/80">
+              <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Active Chat Cost</p>
+              <p className="text-sm font-bold text-emerald-400 font-mono mt-0.5">
+                {activeChat ? `$${Object.values(activeChat.modelStats).reduce((sum, s) => sum + s.cost, 0).toFixed(5)}` : "$0.00000"}
               </p>
             </div>
-            <div className="p-2 rounded bg-zinc-900 border border-zinc-800/80">
-              <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Cost Synthesis</p>
-              <p className="text-lg font-bold text-violet-400 font-mono mt-0.5">
-                {pipelineState === "completed" ? (geminiFails ? "$0.0094" : "$0.0131") : "$0.00"}
+            <div className="p-2 rounded bg-zinc-900/60 border border-zinc-800/80">
+              <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Total User Cost</p>
+              <p className="text-sm font-bold text-violet-400 font-mono mt-0.5">
+                ${calculateTotalUserCost().toFixed(5)}
               </p>
             </div>
           </div>
 
-          {/* Model Cards Grid list */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin">
+          {/* List of Models - FILTERED: Showing only the selected workers and evaluator */}
+          <div className="flex-1 overflow-y-auto p-3 space-y-3.5 scrollbar-thin">
             
-            {MODELS.map((model) => {
-              const isRunning = pipelineState === "running_models";
-              const isCompleted = pipelineState === "completed" || pipelineState === "saving" || pipelineState === "evaluating";
-              const isFailed = model.id === "gemini" && geminiFails;
-              
-              // Latency counter values
-              const currentLatency = 
-                model.id === "openai" ? openaiLatency :
-                model.id === "claude" ? claudeLatency :
-                geminiLatency;
-              
+            {activeRightSideCardIds.map((modelId) => {
+              const config = MODEL_TEMPLATES[modelId];
+              const stats = activeChat ? activeChat.modelStats[modelId] : null;
+
+              const isWorker = selectedWorkers.includes(modelId);
+              const isEvaluator = selectedEvaluator === modelId;
+              const isSelected = selectedInspectorModel === modelId;
+
               return (
                 <div 
-                  key={model.id}
-                  onClick={() => setSelectedInspectorModel(model.id)}
-                  className={`p-3.5 rounded-xl border bg-zinc-900/40 text-left transition duration-200 cursor-pointer ${
-                    selectedInspectorModel === model.id 
-                      ? `bg-zinc-900/90 border-violet-500/50 shadow-md ring-1 ring-violet-500/10` 
-                      : `border-zinc-800 hover:bg-zinc-900/60`
+                  key={modelId}
+                  onClick={() => setSelectedInspectorModel(modelId)}
+                  className={`p-3 rounded-xl border bg-zinc-900/40 text-left transition duration-200 cursor-pointer ${
+                    isSelected 
+                      ? "bg-zinc-900/80 border-violet-500/50 shadow-md ring-1 ring-violet-500/10" 
+                      : "border-zinc-800 hover:bg-zinc-900/50"
                   }`}
                 >
-                  {/* Header Row */}
+                  {/* Title Row with Workers & Evaluators Badges */}
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
-                      <span className={`h-2.5 w-2.5 rounded-full ${model.avatarColor}`} />
-                      <span className="text-xs font-bold text-white">{model.name}</span>
+                      <span className={`h-2.5 w-2.5 rounded-full ${config.avatarColor}`} />
+                      <span className="text-xs font-bold text-white">{config.name}</span>
                     </div>
 
-                    {/* Status badges */}
-                    {isFailed ? (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-950/40 border border-red-500/30 text-red-400 font-bold uppercase font-mono">
-                        Failed
-                      </span>
-                    ) : isRunning && currentLatency > 0 && currentLatency < model.defaultLatency ? (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-violet-950/40 border border-violet-500/30 text-violet-400 font-bold uppercase font-mono animate-pulse">
-                        Running
-                      </span>
-                    ) : isCompleted ? (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 font-bold uppercase font-mono">
-                        Success
-                      </span>
-                    ) : (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-500 font-mono">
-                        Idle
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1">
+                      {isWorker && (
+                        <span className="text-[8px] font-mono font-bold bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-1.5 py-0.5 rounded">
+                          Worker ✓
+                        </span>
+                      )}
+                      {isEvaluator && (
+                        <span className="text-[8px] font-mono font-bold bg-red-500/10 border border-red-500/30 text-red-400 px-1.5 py-0.5 rounded">
+                          Eval ✓
+                        </span>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Metrics subgrid */}
+                  {/* Token usage per chat & cost subgrid */}
                   <div className="grid grid-cols-3 gap-1 py-1.5 border-t border-b border-zinc-800/80 my-2 text-[10px] font-mono text-zinc-400">
                     <div>
                       <p className="text-[8px] text-zinc-500 font-sans uppercase">Latency</p>
                       <p className="font-bold text-zinc-200">
-                        {isCompleted && !isFailed ? `${model.defaultLatency}s` : isFailed ? "—" : currentLatency > 0 ? `${currentLatency}s` : "0.0s"}
+                        {stats && stats.latency > 0 ? `${stats.latency}s` : "0.00s"}
                       </p>
                     </div>
                     <div>
-                      <p className="text-[8px] text-zinc-500 font-sans uppercase">Tokens</p>
-                      <p className="font-bold text-zinc-200">
-                        {isCompleted && !isFailed ? model.defaultTokens : isFailed ? "—" : isRunning ? "Counting" : "0"}
+                      <p className="text-[8px] text-zinc-500 font-sans uppercase">Tokens (In/Out)</p>
+                      <p className="font-bold text-zinc-200 leading-tight">
+                        {stats && stats.inputTokens > 0 
+                          ? `${stats.inputTokens + stats.outputTokens}` 
+                          : "0"}
                       </p>
+                      {stats && stats.inputTokens > 0 && (
+                        <p className="text-[8px] text-zinc-500">
+                          ({stats.inputTokens}/{stats.outputTokens})
+                        </p>
+                      )}
                     </div>
                     <div>
                       <p className="text-[8px] text-zinc-500 font-sans uppercase">Cost Est.</p>
                       <p className="font-bold text-zinc-200">
-                        {isCompleted && !isFailed ? `$${model.defaultCost.toFixed(5)}` : isFailed ? "$0.00" : "$0.00"}
+                        {stats && stats.cost > 0 ? `$${stats.cost.toFixed(5)}` : "$0.00000"}
                       </p>
                     </div>
                   </div>
 
-                  {/* Strengths / Status description */}
-                  <p className="text-[11px] text-zinc-500 mt-1">
-                    <span className="text-zinc-400 font-semibold">Specialty:</span> {model.strength}
+                  {/* Pricing Info helper tooltip */}
+                  <div className="flex justify-between items-center text-[9px] text-zinc-500 font-mono">
+                    <span>Input: ${config.inputCostPer1K}/1k</span>
+                    <span>Output: ${config.outputCostPer1K}/1k</span>
+                  </div>
+
+                  {/* Specialty */}
+                  <p className="text-[10px] text-zinc-500 mt-2">
+                    <span className="text-zinc-400 font-semibold">Specialty:</span> {config.strength}
                   </p>
 
                 </div>
@@ -1178,25 +1208,21 @@ def partition(arr, low, high):
 
           </div>
 
-          {/* Model Raw Inspector Tab viewer */}
-          <div className="h-64 border-t border-zinc-800 flex flex-col bg-[#0b0b0d]">
+          {/* Model Raw Inspector Tab Viewer */}
+          <div className="h-56 border-t border-zinc-800 flex flex-col bg-[#0b0b0d]">
             
-            <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800/60 bg-[#09090b] text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
-              <span>Raw Response Inspector</span>
+            <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800/60 bg-[#09090b] text-[9px] font-bold text-zinc-400 uppercase tracking-wider">
+              <span>Raw Response Preview</span>
               <span className="font-mono text-violet-400">
-                {MODELS.find(m => m.id === selectedInspectorModel)?.name || "Select Model"}
+                {MODEL_TEMPLATES[selectedInspectorModel]?.name || "Select Model"}
               </span>
             </div>
 
-            <div className="flex-1 p-3 overflow-y-auto font-mono text-[10px] text-zinc-400 leading-normal scrollbar-thin bg-zinc-950/40 select-all">
-              {pipelineState === "completed" || pipelineState === "saving" || pipelineState === "evaluating" ? (
-                selectedInspectorModel === "gemini" && geminiFails ? (
-                  <span className="text-red-400 font-bold">{MODELS.find(m => m.id === selectedInspectorModel)?.failedResponse}</span>
-                ) : (
-                  <pre className="whitespace-pre-wrap">{MODELS.find(m => m.id === selectedInspectorModel)?.rawResponse}</pre>
-                )
+            <div className="flex-1 p-3 overflow-y-auto font-mono text-[10px] text-zinc-500 leading-normal scrollbar-thin bg-zinc-950/40 select-all">
+              {activeChat && activeChat.modelStats[selectedInspectorModel]?.rawResponse ? (
+                <pre className="whitespace-pre-wrap">{activeChat.modelStats[selectedInspectorModel].rawResponse}</pre>
               ) : (
-                <span className="italic text-zinc-600">Raw individual provider text is shown here during execution trace. Click any model card to inspect.</span>
+                <span className="italic text-zinc-600 block text-center py-4">No data. Run search query to inspect raw model payloads.</span>
               )}
             </div>
 
@@ -1205,18 +1231,18 @@ def partition(arr, low, high):
         </aside>
       )}
 
-      {/* ==================== BYOK CREDENTIALS MODAL ==================== */}
+      {/* ==================== BYOK CREDENTIALS & SETTINGS MODAL ==================== */}
       {keysModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-[#0e0e11] p-6 shadow-2xl space-y-6">
+          <div className="w-full max-w-lg rounded-2xl border border-zinc-800 bg-[#0f0f12] p-5 sm:p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto scrollbar-thin">
             
             {/* Header */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80">
+              <div className="flex items-center gap-2.5">
                 <div className="p-1.5 rounded-lg bg-violet-500/10 text-violet-400">
-                  🔒
+                  ⚙️
                 </div>
-                <h3 className="text-base font-bold text-white">Manage BYOK Credentials</h3>
+                <h3 className="text-base font-bold text-white">ApexRouter Orchestration Settings</h3>
               </div>
               <button 
                 onClick={() => setKeysModalOpen(false)}
@@ -1228,58 +1254,147 @@ def partition(arr, low, high):
               </button>
             </div>
 
-            {/* Warning block about key security */}
-            <div className="p-3 rounded-xl border border-violet-800/20 bg-violet-950/10 text-xs text-violet-300">
-              <p className="font-semibold mb-1">AES-256 Transit Protection</p>
-              Your keys are never stored on a centralized server. They are encrypted in-browser using standard AES-256 and sent securely in header envelopes directly to model adapters.
+            {/* BYOK KEY CONFIG SECTION WITH REAL-TIME REGEX VALIDATION */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-violet-400 uppercase tracking-wider">1. API Keys (BYOK Encrypted Storage)</h4>
+                <span className="text-[9px] text-zinc-500 font-mono">Real-time Regex Checks</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+                {Object.keys(MODEL_TEMPLATES).map((id) => {
+                  const m = MODEL_TEMPLATES[id];
+                  const state = keyValidationStates[id];
+                  return (
+                    <div key={id} className="space-y-1">
+                      <div className="flex justify-between items-center">
+                        <label className="text-[11px] font-semibold text-zinc-400">{m.name} Key</label>
+                        {state === "valid" && (
+                          <span className="text-[9px] font-mono text-emerald-400 font-bold">✓ Valid</span>
+                        )}
+                        {state === "invalid" && (
+                          <span className="text-[9px] font-mono text-red-400 font-bold">✗ Invalid format</span>
+                        )}
+                        {state === "empty" && (
+                          <span className="text-[9px] font-mono text-zinc-600">Missing Key</span>
+                        )}
+                      </div>
+                      <div className={`flex items-center rounded-lg border p-2 bg-zinc-950/60 ${
+                        state === "valid" ? "border-emerald-500/30" : state === "invalid" ? "border-red-500/30" : "border-zinc-800"
+                      }`}>
+                        <input
+                          type="password"
+                          value={apiKeys[id]}
+                          placeholder={m.placeholderKey}
+                          onChange={(e) => handleKeyChange(id, e.target.value)}
+                          className="w-full bg-transparent text-xs font-mono text-zinc-300 outline-none"
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Inputs */}
-            <div className="space-y-4 text-left">
+            {/* WORKERS CONFIG SECTION */}
+            <div className="space-y-4 pt-4 border-t border-zinc-800/80 text-left">
               
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-zinc-400">OpenAI API Key</label>
-                <div className="flex items-center rounded-lg border border-zinc-800 bg-zinc-950/60 p-2">
-                  <span className="text-zinc-600 text-xs font-mono mr-2">sk-proj-</span>
-                  <input
-                    type="password"
-                    value={apiKeys.openai}
-                    onChange={(e) => setApiKeys({ ...apiKeys, openai: e.target.value })}
-                    className="flex-1 bg-transparent text-xs font-mono text-zinc-300 outline-none"
-                  />
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-violet-400 uppercase tracking-wider">2. Worker Pipeline Routing</h4>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-zinc-400 font-semibold">Max concurrent workers:</span>
+                  <select 
+                    value={numWorkers}
+                    onChange={(e) => {
+                      const count = parseInt(e.target.value, 10);
+                      setNumWorkers(count);
+                      // Shrink selected workers if they exceed the new count limit
+                      if (selectedWorkers.length > count) {
+                        setSelectedWorkers(selectedWorkers.slice(0, count));
+                      }
+                    }}
+                    className="bg-zinc-900 border border-zinc-800 text-xs px-2 py-0.5 rounded text-white"
+                  >
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
+              {/* Workers Grid Selection */}
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-zinc-400">Anthropic Claude API Key</label>
-                <div className="flex items-center rounded-lg border border-zinc-800 bg-zinc-950/60 p-2">
-                  <span className="text-zinc-600 text-xs font-mono mr-2">sk-ant-</span>
-                  <input
-                    type="password"
-                    value={apiKeys.claude}
-                    onChange={(e) => setApiKeys({ ...apiKeys, claude: e.target.value })}
-                    className="flex-1 bg-transparent text-xs font-mono text-zinc-300 outline-none"
-                  />
+                <p className="text-[10px] text-zinc-500 font-mono mb-2">Select up to {numWorkers} active workers (marked with green checkmarks):</p>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {Object.keys(MODEL_TEMPLATES).map((id) => {
+                    const config = MODEL_TEMPLATES[id];
+                    const isSelected = selectedWorkers.includes(id);
+                    return (
+                      <button
+                        key={id}
+                        onClick={() => handleToggleWorker(id)}
+                        className={`flex items-center justify-between p-2 rounded-lg border text-xs transition duration-150 ${
+                          isSelected 
+                            ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 font-bold" 
+                            : "border-zinc-800 bg-zinc-950/20 text-zinc-400 hover:bg-zinc-900"
+                        }`}
+                      >
+                        <span>{config.name}</span>
+                        {isSelected && <span className="text-emerald-500 font-bold text-[10px]">✓</span>}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-zinc-400">Google Gemini API Key</label>
-                <div className="flex items-center rounded-lg border border-zinc-800 bg-zinc-950/60 p-2">
-                  <span className="text-zinc-600 text-xs font-mono mr-2">AIzaSy-</span>
-                  <input
-                    type="password"
-                    value={apiKeys.gemini}
-                    onChange={(e) => setApiKeys({ ...apiKeys, gemini: e.target.value })}
-                    className="flex-1 bg-transparent text-xs font-mono text-zinc-300 outline-none"
-                  />
+              {/* Evaluator Configuration Selector */}
+              <div className="space-y-1.5 pt-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] font-semibold text-zinc-400">3. Evaluator Model (Synthesizer Brain - marked with red checkmark):</p>
                 </div>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {Object.keys(MODEL_TEMPLATES).map((id) => {
+                    const config = MODEL_TEMPLATES[id];
+                    const isSelected = selectedEvaluator === id;
+                    return (
+                      <button
+                        key={id}
+                        onClick={() => setSelectedEvaluator(id)}
+                        className={`flex items-center justify-between p-2 rounded-lg border text-xs transition duration-150 ${
+                          isSelected 
+                            ? "bg-red-500/10 border-red-500/30 text-red-400 font-bold" 
+                            : "border-zinc-800 bg-zinc-950/20 text-zinc-400 hover:bg-zinc-900"
+                        }`}
+                      >
+                        <span>{config.name}</span>
+                        {isSelected && <span className="text-red-500 font-bold text-[10px]">✓</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Auto-Title Model Settings */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3">
+                <div className="text-left">
+                  <p className="text-[11px] font-semibold text-zinc-400">4. Auto-Title Thread Configuration</p>
+                  <p className="text-[9px] text-zinc-500 font-mono">Model used to auto-name sidebar threads</p>
+                </div>
+                <select 
+                  value={autoTitleModel}
+                  onChange={(e) => setAutoTitleModel(e.target.value)}
+                  className="bg-zinc-900 border border-zinc-800 text-xs px-2 py-1.5 rounded-lg text-white font-mono w-full sm:w-44"
+                >
+                  {Object.keys(MODEL_TEMPLATES).map((id) => (
+                    <option key={id} value={id}>{MODEL_TEMPLATES[id].name}</option>
+                  ))}
+                </select>
               </div>
 
             </div>
 
             {/* Save Buttons */}
-            <div className="flex gap-3 justify-end pt-2 border-t border-zinc-800">
+            <div className="flex gap-3 justify-end pt-4 border-t border-zinc-800">
               <button
                 onClick={() => setKeysModalOpen(false)}
                 className="px-4 py-2 rounded-xl border border-zinc-800 hover:bg-zinc-800 text-xs font-semibold text-zinc-400 hover:text-white transition"
@@ -1289,11 +1404,12 @@ def partition(arr, low, high):
               <button
                 onClick={() => {
                   setKeysModalOpen(false);
-                  alert("Keys successfully encrypted with AES-256 and committed to local mock database!");
+                  saveStateToStorage(chats, apiKeys);
+                  alert("Settings successfully written to storage!");
                 }}
                 className="px-4 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-md shadow-violet-500/20 transition duration-200"
               >
-                Encrypt & Save Keys
+                Save Settings
               </button>
             </div>
 
