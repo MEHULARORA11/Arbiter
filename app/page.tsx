@@ -386,10 +386,17 @@ export default function App() {
   }, [selectedModelIds]);
 
   // Orchestrator Configuration Defaults
-  const [numWorkers, setNumWorkers] = useState(3);
   const [selectedWorkers, setSelectedWorkers] = useState<string[]>(["openai", "mistral", "claude"]);
   const [selectedEvaluator, setSelectedEvaluator] = useState<string | null>("claude");
+  const maxWorkers = selectedEvaluator ? 5 : 1;
   const [autoTitleModel, setAutoTitleModel] = useState<string>("mistral");
+
+  // Effect to trim selected workers if evaluator is disabled
+  useEffect(() => {
+    if (!selectedEvaluator && selectedWorkers.length > 1) {
+      setSelectedWorkers(selectedWorkers.slice(0, 1));
+    }
+  }, [selectedEvaluator, selectedWorkers]);
 
   // UI state machine for orchestrator execution
   const [pipelineState, setPipelineState] = useState<"idle" | "running" | "completed">("idle");
@@ -497,9 +504,10 @@ export default function App() {
   // Handle worker selection limit according to choose number of workers
   const handleToggleWorker = (modelId: string) => {
     if (selectedWorkers.includes(modelId)) {
+      if (selectedWorkers.length <= 1) return; // Minimum 1 worker must be active
       setSelectedWorkers(selectedWorkers.filter((id) => id !== modelId));
     } else {
-      if (selectedWorkers.length >= numWorkers) {
+      if (selectedWorkers.length >= maxWorkers) {
         // Remove the oldest selected worker to make room
         setSelectedWorkers([...selectedWorkers.slice(1), modelId]);
       } else {
@@ -843,8 +851,13 @@ export default function App() {
       // Compile assistant synthesis report text
       let synthesisContent = "";
 
-      if (evaluatorFailed) {
-        const evalConfig = MODEL_TEMPLATES[selectedEvaluator!];
+      if (!selectedEvaluator) {
+        const singleWorkerId = selectedWorkers[0];
+        const workerName = MODEL_TEMPLATES[singleWorkerId]?.name || "Worker";
+        const rawResp = finalStats[singleWorkerId]?.rawResponse || "No response received.";
+        synthesisContent = `### ${workerName} Response\n\n${rawResp}`;
+      } else if (evaluatorFailed) {
+        const evalConfig = MODEL_TEMPLATES[selectedEvaluator];
         synthesisContent = `### Orchestrator Evaluation Failure
 
 ⚠️ **The synthesis step aborted because the Evaluator Model (${evalConfig.name}) encountered a critical API error:**
@@ -869,15 +882,13 @@ ${failedWorkers.map(fw => `> * **${fw.name}**: ${fw.errorType}`).join("\n")}
 ---`
           : "";
 
-        const evalHeader = selectedEvaluator 
-          ? `### ${MODEL_TEMPLATES[selectedEvaluator]?.name} Evaluator Synthesized Response` 
-          : `### Consolidated Worker Response (No Evaluator)`;
+        const evalHeader = `### ${MODEL_TEMPLATES[selectedEvaluator]?.name} Evaluator Synthesized Response`;
 
         synthesisContent = `${evalHeader}
 
 ${warningsSection}
 
-This report consolidates response streams gathered concurrently from: **${healthyWorkers.map(id => MODEL_TEMPLATES[id]?.name || id).join(", ")}** workers.
+This report consolidates response streams gathered ${healthyWorkers.length > 1 ? "concurrently " : ""}from: **${healthyWorkers.map(id => MODEL_TEMPLATES[id]?.name || id).join(", ")}** worker${healthyWorkers.length > 1 ? "s" : ""}.
 
 #### 1. Synthesis Insights
 Based on healthy data streams, MergeSort guarantees strict bounds for large-scale operations. QuickSort is recommended for in-memory stack arrays where stable alignment is not required.
@@ -952,7 +963,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
           
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-gradient-to-tr from-accent-primary to-accent-secondary text-white font-black shadow-md shadow-accent-primary/20">
+              <div className="flex h-9 w-9 items-center justify-center rounded-md bg-gradient-to-tr from-accent-primary to-accent-secondary text-black font-black shadow-md shadow-accent-primary/20">
                 Ω
               </div>
               <div className="flex flex-col">
@@ -1019,7 +1030,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
         <div className="p-3">
           <button
             onClick={handleNewChat}
-            className="flex w-full items-center justify-center gap-2 rounded-md bg-accent-primary hover:bg-accent-primary-hover hover:shadow-accent-primary/10 py-2 px-4 text-xs font-bold text-white transition-all duration-200"
+            className="flex w-full items-center justify-center gap-2 rounded-md bg-accent-primary hover:bg-accent-primary-hover hover:shadow-accent-primary/10 py-2 px-4 text-xs font-bold text-black transition-all duration-200"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
               <path d="M10.75 4.75a.75.75 0 0 0-1.5 0v4.5h-4.5a.75.75 0 0 0 0 1.5h4.5v4.5a.75.75 0 0 0 1.5 0v-4.5h4.5a.75.75 0 0 0 0-1.5h-4.5v-4.5Z" />
@@ -1199,6 +1210,15 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
             </svg>
             <span>{activeErrorMessage}</span>
+            <button
+              onClick={() => setActiveErrorMessage(null)}
+              className="ml-auto p-1 text-status-error hover:bg-status-error-bg/60 rounded-md transition duration-150"
+              title="Dismiss error"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
         )}
 
@@ -1220,7 +1240,11 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                   </span>
                 </h1>
                 <p className="text-xs sm:text-sm text-text-secondary max-w-md mx-auto leading-relaxed">
-                  Query worker models concurrently, synthesize responses through an evaluator model, and persist historical metrics in Drizzle Postgres.
+                  {selectedEvaluator ? (
+                    `Query up to 5 worker models concurrently, synthesize responses through ${MODEL_TEMPLATES[selectedEvaluator]?.name || "an evaluator model"}, and persist historical metrics in Drizzle Postgres.`
+                  ) : (
+                    `Query a single worker model directly for unchecked response stream, and persist historical metrics in Drizzle Postgres.`
+                  )}
                 </p>
               </div>
 
@@ -1262,15 +1286,15 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                       setPipelineState("completed");
                       saveStateToStorage(newChats, apiKeys);
                     }}
-                    className="text-[9px] bg-accent-primary hover:bg-accent-primary-hover text-white font-mono py-1 px-3 rounded-md transition"
+                    className="text-[9px] bg-accent-primary hover:bg-accent-primary-hover text-black font-mono py-1 px-3 rounded-md transition"
                   >
                     Load Historical DB Chats
                   </button>
                 </div>
                 <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-text-secondary">
-                  <div>Workers Selectable: <span className="text-text-primary">{numWorkers} Limit</span></div>
-                  <div>Active Workers: <span className="text-text-primary">{selectedWorkers.map(id => MODEL_TEMPLATES[id]?.name).join(", ")}</span></div>
-                  <div className="col-span-2">Evaluator Model: <span className="text-accent-secondary font-bold">{selectedEvaluator ? (MODEL_TEMPLATES[selectedEvaluator]?.name || selectedEvaluator) : "None (Consolidated)"}</span></div>
+                  <div>Max Workers: <span className="text-text-primary">{maxWorkers} Limit</span></div>
+                  <div>{selectedEvaluator ? "Active Workers" : "Active Worker"}: <span className="text-text-primary">{selectedWorkers.map(id => MODEL_TEMPLATES[id]?.name).join(", ")}</span></div>
+                  <div className="col-span-2">Evaluator Model: <span className="text-accent-secondary font-bold">{selectedEvaluator ? (MODEL_TEMPLATES[selectedEvaluator]?.name || selectedEvaluator) : "None (Direct Output)"}</span></div>
                   <div className="col-span-2">Auto-Title Model: <span className="text-text-primary">{currentAutoTitleModelName}</span></div>
                 </div>
               </div>
@@ -1330,7 +1354,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                     {/* Message Body */}
                     <div className="space-y-1.5 flex-1 min-w-0">
                       <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-wider">
-                        {isUser ? "User Query" : selectedEvaluator ? `${MODEL_TEMPLATES[selectedEvaluator]?.name || selectedEvaluator} Evaluator Synthesis` : "Consolidated Worker Synthesis"}
+                        {isUser ? "User Query" : selectedEvaluator ? `${MODEL_TEMPLATES[selectedEvaluator]?.name || selectedEvaluator} Evaluator Synthesis` : `${MODEL_TEMPLATES[selectedWorkers[0]]?.name || "Worker"} Direct Response`}
                       </p>
                       
                       <div className="prose prose-invert max-w-none text-text-primary text-xs sm:text-sm whitespace-pre-wrap leading-relaxed">
@@ -1381,7 +1405,11 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                   <div className="space-y-2 flex-1">
                     <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-wider">Orchestrator running...</p>
                     <p className="text-xs text-text-secondary font-medium">
-                      Querying workers ({selectedWorkers.map(id => MODEL_TEMPLATES[id]?.name || id).join(", ")}) concurrently.{selectedEvaluator ? ` Synthesizing answers via ${MODEL_TEMPLATES[selectedEvaluator]?.name || selectedEvaluator}...` : " Consolidating worker responses..."}
+                      {selectedEvaluator ? (
+                        `Querying workers (${selectedWorkers.map(id => MODEL_TEMPLATES[id]?.name || id).join(", ")}) concurrently. Synthesizing answers via ${MODEL_TEMPLATES[selectedEvaluator]?.name || selectedEvaluator}...`
+                      ) : (
+                        `Querying active worker (${selectedWorkers.map(id => MODEL_TEMPLATES[id]?.name || id).join(", ")}) directly...`
+                      )}
                     </p>
                     <div className="h-1.5 w-48 bg-bg-surface rounded-full overflow-hidden">
                       <div className="h-full bg-accent-primary rounded-full animate-infinite-progress" style={{ width: "60%" }}></div>
@@ -1432,7 +1460,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
               <button
                 onClick={() => handleTriggerOrchestrate(searchQuery || "Compare the time complexity of QuickSort vs MergeSort with code examples.")}
                 disabled={pipelineState === "running" || !searchQuery.trim()}
-                className="h-9 px-4 rounded-md bg-accent-primary hover:bg-accent-primary-hover text-white font-bold text-xs shadow-md shadow-accent-primary/20 active:scale-95 transition-all disabled:opacity-40"
+                className="h-9 px-4 rounded-md bg-accent-primary hover:bg-accent-primary-hover text-black font-bold text-xs shadow-md shadow-accent-primary/20 active:scale-95 transition-all disabled:opacity-40"
               >
                 Orchestrate
               </button>
@@ -1773,25 +1801,9 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
               
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold text-accent-primary uppercase tracking-wider">4. Worker Pipeline Routing</h4>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-text-secondary font-semibold">Max concurrent workers:</span>
-                  <select 
-                    value={numWorkers}
-                    onChange={(e) => {
-                      const count = parseInt(e.target.value, 10);
-                      setNumWorkers(count);
-                      // Shrink selected workers if they exceed the new count limit
-                      if (selectedWorkers.length > count) {
-                        setSelectedWorkers(selectedWorkers.slice(0, count));
-                      }
-                    }}
-                    className="bg-bg-surface-raised border border-border-subtle text-xs px-2 py-0.5 rounded-md text-text-primary"
-                  >
-                    {[1, 2, 3, 4, 5].map((n) => (
-                      <option key={n} value={n}>{n}</option>
-                    ))}
-                  </select>
-                </div>
+                <span className="text-xs text-text-secondary font-semibold">
+                  Max workers: {maxWorkers} {selectedEvaluator ? '(evaluator active)' : '(no evaluator — single worker only)'}
+                </span>
               </div>
 
               {/* Workers Grid Selection */}
@@ -1801,6 +1813,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                   {Object.keys(MODEL_TEMPLATES).map((id) => {
                     const config = MODEL_TEMPLATES[id];
                     const isSelected = selectedWorkers.includes(id);
+                    const isVisuallyDisabled = selectedEvaluator === null && !isSelected;
                     return (
                       <button
                         key={id}
@@ -1809,7 +1822,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                           isSelected 
                             ? "bg-status-success-bg border-status-success/30 text-status-success font-bold" 
                             : "border-border-subtle bg-bg-base/20 text-text-secondary hover:bg-bg-surface-raised"
-                        }`}
+                        } ${isVisuallyDisabled ? "opacity-40" : ""}`}
                       >
                         <span>{config.name}</span>
                         {isSelected && <span className="text-status-success font-bold text-[10px]">✓</span>}
@@ -1890,7 +1903,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                   saveStateToStorage(chats, apiKeys, nextChatCounter, apiErrorConfigs, selectedModelIds);
                   alert("Settings successfully written to storage!");
                 }}
-                className="px-4 py-2 rounded-md bg-accent-primary hover:bg-accent-primary-hover text-white text-xs font-semibold shadow-md shadow-accent-primary/20 transition duration-200"
+                className="px-4 py-2 rounded-md bg-accent-primary hover:bg-accent-primary-hover text-black text-xs font-semibold shadow-md shadow-accent-primary/20 transition duration-200"
               >
                 Save Settings
               </button>
