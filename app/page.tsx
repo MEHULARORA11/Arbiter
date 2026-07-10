@@ -938,8 +938,21 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
   // Filtered right card list (Only showing selected workers & evaluator)
   const activeRightSideCardIds = Array.from(new Set([...selectedWorkers, ...(selectedEvaluator ? [selectedEvaluator] : [])]));
 
+  // Eligible models for Auto-Title must be currently active (workers + evaluator)
+  const eligibleAutoTitleModelIds = activeRightSideCardIds;
+
   // Auto-title settings config text
   const currentAutoTitleModelName = MODEL_TEMPLATES[autoTitleModel]?.name || "Mistral Large";
+
+  // Ensure `autoTitleModel` remains valid when selected workers/evaluator change
+  useEffect(() => {
+    const eligible = Array.from(
+      new Set([...selectedWorkers, ...(selectedEvaluator ? [selectedEvaluator] : [])])
+    );
+    if (!eligible.includes(autoTitleModel) && eligible.length > 0) {
+      setAutoTitleModel(eligible[0]);
+    }
+  }, [selectedWorkers, selectedEvaluator]);
 
   return (
     <div className="flex h-screen w-full bg-bg-base text-text-secondary overflow-hidden font-sans antialiased">
@@ -1881,7 +1894,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                   onChange={(e) => setAutoTitleModel(e.target.value)}
                   className="bg-bg-surface-raised border border-border-subtle text-xs px-2 py-1.5 rounded-md text-text-primary font-mono w-full sm:w-44"
                 >
-                  {Object.keys(MODEL_TEMPLATES).map((id) => (
+                  {eligibleAutoTitleModelIds.map((id) => (
                     <option key={id} value={id}>{MODEL_TEMPLATES[id].name}</option>
                   ))}
                 </select>
