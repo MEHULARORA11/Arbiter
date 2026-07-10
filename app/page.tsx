@@ -19,20 +19,74 @@ interface ModelConfig {
   rawResponseTemplate: string;
 }
 
-const MODEL_TEMPLATES: Record<string, ModelConfig> = {
+interface ModelOption {
+  id: string;
+  name: string;
+  inputCostPer1K: number;
+  outputCostPer1K: number;
+  strength: string;
+  rawResponseTemplate: string;
+}
+
+const PROVIDER_META: Record<string, {
+  provider: string;
+  avatarColor: string;
+  borderColor: string;
+  textColor: string;
+  accentBg: string;
+  placeholderKey: string;
+}> = {
   openai: {
-    id: "openai",
-    name: "GPT-4o",
     provider: "OpenAI",
     avatarColor: "bg-model-openai",
     borderColor: "border-model-openai/30 hover:border-model-openai/60",
     textColor: "text-model-openai",
     accentBg: "bg-model-openai/10",
-    inputCostPer1K: 0.0025, // $2.50 per 1M tokens
-    outputCostPer1K: 0.0100, // $10.00 per 1M tokens
-    strength: "Precise coding & highly optimized execution syntax.",
-    placeholderKey: "sk-proj-...",
-    rawResponseTemplate: `### OpenAI GPT-4o Response
+    placeholderKey: "sk-proj-..."
+  },
+  claude: {
+    provider: "Anthropic",
+    avatarColor: "bg-model-claude",
+    borderColor: "border-model-claude/30 hover:border-model-claude/60",
+    textColor: "text-model-claude",
+    accentBg: "bg-model-claude/10",
+    placeholderKey: "sk-ant-..."
+  },
+  gemini: {
+    provider: "Google",
+    avatarColor: "bg-model-gemini",
+    borderColor: "border-model-gemini/30 hover:border-model-gemini/60",
+    textColor: "text-model-gemini",
+    accentBg: "bg-model-gemini/10",
+    placeholderKey: "AIzaSy..."
+  },
+  deepseek: {
+    provider: "DeepSeek",
+    avatarColor: "bg-model-deepseek",
+    borderColor: "border-model-deepseek/30 hover:border-model-deepseek/60",
+    textColor: "text-model-deepseek",
+    accentBg: "bg-model-deepseek/10",
+    placeholderKey: "sk-ds-..."
+  },
+  mistral: {
+    provider: "Mistral",
+    avatarColor: "bg-model-mistral",
+    borderColor: "border-model-mistral/30 hover:border-model-mistral/60",
+    textColor: "text-model-mistral",
+    accentBg: "bg-model-mistral/10",
+    placeholderKey: "Mistral key..."
+  }
+};
+
+const PROVIDER_MODELS: Record<string, ModelOption[]> = {
+  openai: [
+    {
+      id: "gpt-4o",
+      name: "GPT-4o",
+      inputCostPer1K: 0.0025,
+      outputCostPer1K: 0.0100,
+      strength: "Precise coding & highly optimized execution syntax.",
+      rawResponseTemplate: `### OpenAI GPT-4o Response
 Here is the requested sorting analysis:
 * **QuickSort**: Average $O(n \\log n)$, Worst $O(n^2)$. In-place partitioning. Very fast on primitives due to cache locality.
 * **MergeSort**: Always $O(n \\log n)$. Stable, preserves index sequences, but uses $O(n)$ extra memory.
@@ -42,20 +96,43 @@ def quicksort(arr):
     pivot = arr[len(arr)//2]
     return quicksort([x for x in arr if x < pivot]) + [x for x in arr if x == pivot] + quicksort([x for x in arr if x > pivot])
 \`\`\``
-  },
-  claude: {
-    id: "claude",
-    name: "Claude 3.5 Sonnet",
-    provider: "Anthropic",
-    avatarColor: "bg-model-claude",
-    borderColor: "border-model-claude/30 hover:border-model-claude/60",
-    textColor: "text-model-claude",
-    accentBg: "bg-model-claude/10",
-    inputCostPer1K: 0.0030, // $3.00 per 1M tokens
-    outputCostPer1K: 0.0150, // $15.00 per 1M tokens
-    strength: "Architectural reasoning, edge case handling, and complexity bounds.",
-    placeholderKey: "sk-ant-...",
-    rawResponseTemplate: `### Claude 3.5 Sonnet Response
+    },
+    {
+      id: "gpt-4o-mini",
+      name: "GPT-4o Mini",
+      inputCostPer1K: 0.00015,
+      outputCostPer1K: 0.00060,
+      strength: "Super fast, lightweight tasks, extremely cost-efficient.",
+      rawResponseTemplate: `### OpenAI GPT-4o Mini Response
+Brief sorting recap:
+* **QuickSort**: Fast, in-place, unstable. $O(n \\log n)$ average.
+* **MergeSort**: Stable, requires $O(n)$ space.
+\`\`\`python
+# Simple mini quicksort
+def quicksort(arr):
+    return sorted(arr)
+\`\`\``
+    },
+    {
+      id: "o1-preview",
+      name: "OpenAI o1 Preview",
+      inputCostPer1K: 0.0150,
+      outputCostPer1K: 0.0600,
+      strength: "Deep multi-step reasoning, complex algorithm synthesis.",
+      rawResponseTemplate: `### OpenAI o1 Preview Response
+Let us reason step-by-step about sorting stability and caching:
+1. QuickSort partitions in place. This makes it cache-friendly since memory access is sequential.
+2. MergeSort divides and conquers, but the merge step is stable. We need stable sorting when sorting records by primary and secondary keys.`
+    }
+  ],
+  claude: [
+    {
+      id: "claude-3-5-sonnet",
+      name: "Claude 3.5 Sonnet",
+      inputCostPer1K: 0.0030,
+      outputCostPer1K: 0.0150,
+      strength: "Architectural reasoning, edge case handling, and complexity bounds.",
+      rawResponseTemplate: `### Claude 3.5 Sonnet Response
 Evaluating sorting architectures:
 * **Memory Limits**: MergeSort auxiliary array space can cause OOM on heap limits. QuickSort uses stack memory $O(\\log n)$.
 * **Stability Requirement**: If sorting complex data elements (e.g. database records with composite keys), MergeSort's stable merge preserves historical orders.
@@ -66,64 +143,124 @@ def mergesort(arr):
     left, right = mergesort(arr[:mid]), mergesort(arr[mid:])
     return merge(left, right)
 \`\`\``
-  },
-  gemini: {
-    id: "gemini",
-    name: "Gemini 1.5 Pro",
-    provider: "Google",
-    avatarColor: "bg-model-gemini",
-    borderColor: "border-model-gemini/30 hover:border-model-gemini/60",
-    textColor: "text-model-gemini",
-    accentBg: "bg-model-gemini/10",
-    inputCostPer1K: 0.00125, // $1.25 per 1M tokens
-    outputCostPer1K: 0.00375, // $3.75 per 1M tokens
-    strength: "Explanatory analogies, context windows, and structured flows.",
-    placeholderKey: "AIzaSy...",
-    rawResponseTemplate: `### Gemini 1.5 Pro Response
+    },
+    {
+      id: "claude-3-5-haiku",
+      name: "Claude 3.5 Haiku",
+      inputCostPer1K: 0.00080,
+      outputCostPer1K: 0.00400,
+      strength: "Rapid text generation, fast coding suggestions.",
+      rawResponseTemplate: `### Claude 3.5 Haiku Response
+Quick summary of QuickSort and MergeSort:
+* **QuickSort**: $O(n \\log n)$ average, $O(n^2)$ worst-case. Not stable.
+* **MergeSort**: $O(n \\log n)$ always. Stable.`
+    },
+    {
+      id: "claude-3-opus",
+      name: "Claude 3 Opus",
+      inputCostPer1K: 0.0150,
+      outputCostPer1K: 0.0750,
+      strength: "High-level planning, deep conceptual explanations.",
+      rawResponseTemplate: `### Claude 3 Opus Response
+A comprehensive analysis of divide-and-conquer sorting algorithms:
+* In systems with virtual memory, the non-locality of MergeSort's merge phase can induce page faults.
+* QuickSort's partition phase maintains high spatial locality.`
+    }
+  ],
+  gemini: [
+    {
+      id: "gemini-1-5-pro",
+      name: "Gemini 1.5 Pro",
+      inputCostPer1K: 0.00125,
+      outputCostPer1K: 0.00375,
+      strength: "Explanatory analogies, context windows, and structured flows.",
+      rawResponseTemplate: `### Gemini 1.5 Pro Response
 Think of sorting like sorting a library book shelf:
 * **MergeSort**: You break the shelf into 2 halves, ask 2 assistants to sort them separately, and merge. Safe, but you need table space equal to the shelf size ($O(n)$ space).
 * **QuickSort**: You pick a random book (pivot), place all thinner books to the left and thicker to the right. Fast, but if you pick the thinnest book every time, you sort one-by-one ($O(n^2)$ worst case).`
-  },
-  deepseek: {
-    id: "deepseek",
-    name: "DeepSeek V3",
-    provider: "DeepSeek",
-    avatarColor: "bg-model-deepseek",
-    borderColor: "border-model-deepseek/30 hover:border-model-deepseek/60",
-    textColor: "text-model-deepseek",
-    accentBg: "bg-model-deepseek/10",
-    inputCostPer1K: 0.00014, // $0.14 per 1M tokens
-    outputCostPer1K: 0.00028, // $0.28 per 1M tokens
-    strength: "Extremely cost-effective mathematical reasoning and clean logic.",
-    placeholderKey: "sk-ds-...",
-    rawResponseTemplate: `### DeepSeek V3 Response
+    },
+    {
+      id: "gemini-1-5-flash",
+      name: "Gemini 1.5 Flash",
+      inputCostPer1K: 0.000075,
+      outputCostPer1K: 0.00030,
+      strength: "High-frequency, low-latency API calls, large context window.",
+      rawResponseTemplate: `### Gemini 1.5 Flash Response
+Here is a fast review:
+* QuickSort: fast, in-place ($O(1)$ auxiliary space if tail-optimized).
+* MergeSort: stable sorting ($O(n)$ space required).`
+    }
+  ],
+  deepseek: [
+    {
+      id: "deepseek-v3",
+      name: "DeepSeek V3",
+      inputCostPer1K: 0.00014,
+      outputCostPer1K: 0.00028,
+      strength: "Extremely cost-effective mathematical reasoning and clean logic.",
+      rawResponseTemplate: `### DeepSeek V3 Response
 Analyzing recursive optimizations:
 * QuickSort is standard in libraries like C++ std::sort (IntroSort fallback) due to pointer cache benefits.
-* DeepSeek recommends memoization-like pivots. By choosing median-of-three, we practically avoid the worst-case quadratic complexity:
+* DeepSeek recommends median-of-three, we practically avoid the worst-case quadratic complexity:
 \`\`\`python
 # Median-of-three pivot quicksort helper
 def median_of_three(a, b, c):
     return sorted([a, b, c])[1]
 \`\`\``
-  },
-  mistral: {
-    id: "mistral",
-    name: "Mistral Large",
-    provider: "Mistral",
-    avatarColor: "bg-model-mistral",
-    borderColor: "border-model-mistral/30 hover:border-model-mistral/60",
-    textColor: "text-model-mistral",
-    accentBg: "bg-model-mistral/10",
-    inputCostPer1K: 0.0020, // $2.00 per 1M tokens
-    outputCostPer1K: 0.0060, // $6.00 per 1M tokens
-    strength: "Systems design, European localization, and low overhead operations.",
-    placeholderKey: "Mistral key...",
-    rawResponseTemplate: `### Mistral Large Response
+    },
+    {
+      id: "deepseek-r1",
+      name: "DeepSeek R1",
+      inputCostPer1K: 0.00055,
+      outputCostPer1K: 0.00219,
+      strength: "Deep reasoning, chain of thought, math and coding logic.",
+      rawResponseTemplate: `### DeepSeek R1 Response
+<thought>
+The user wants a comparison of QuickSort vs MergeSort.
+I should break down:
+1. Time complexity (average vs worst case).
+2. Space complexity.
+3. Cache performance.
+4. Stability.
+</thought>
+Comparing QuickSort and MergeSort:
+* QuickSort partitions in place. This makes it cache-friendly since memory access is sequential.
+* MergeSort divides and conquers, but the merge step is stable. We need stable sorting when sorting records by primary and secondary keys.`
+    }
+  ],
+  mistral: [
+    {
+      id: "mistral-large",
+      name: "Mistral Large",
+      inputCostPer1K: 0.0020,
+      outputCostPer1K: 0.0060,
+      strength: "Systems design, European localization, and low overhead operations.",
+      rawResponseTemplate: `### Mistral Large Response
 Sorting complexity profile:
 * MergeSort is stable, parallelizable on disk blocks.
 * QuickSort worst-case stack is $O(n)$ without tail recursion optimization. With tail recursion, it is $O(\\log n)$.
 * Mistral Large prioritizes cache friendliness: arrays fit cache lines, so QuickSort swaps are blazing fast.`
-  }
+    },
+    {
+      id: "mistral-codestral",
+      name: "Codestral",
+      inputCostPer1K: 0.0010,
+      outputCostPer1K: 0.0030,
+      strength: "Code generation, completion, and programming assistance.",
+      rawResponseTemplate: `### Codestral Response
+Let's implement quicksort in Python:
+\`\`\`python
+def quicksort(arr):
+    if len(arr) <= 1:
+        return arr
+    pivot = arr[len(arr) // 2]
+    left = [x for x in arr if x < pivot]
+    middle = [x for x in arr if x == pivot]
+    right = [x for x in arr if x > pivot]
+    return quicksort(left) + middle + quicksort(right)
+\`\`\``
+    }
+  ]
 };
 
 interface Message {
@@ -213,10 +350,45 @@ export default function App() {
     mistral: "success"
   });
 
+  // Selected Model version choices per provider/LLM type
+  const [selectedModelIds, setSelectedModelIds] = useState<Record<string, string>>({
+    openai: "gpt-4o",
+    claude: "claude-3-5-sonnet",
+    gemini: "gemini-1-5-pro",
+    deepseek: "deepseek-v3",
+    mistral: "mistral-large"
+  });
+
+  // Dynamically build model templates based on user active version selection
+  const MODEL_TEMPLATES = React.useMemo(() => {
+    const templates: Record<string, ModelConfig> = {};
+    Object.keys(PROVIDER_META).forEach((provider) => {
+      const activeModelId = selectedModelIds[provider];
+      const option = PROVIDER_MODELS[provider].find((o) => o.id === activeModelId) || PROVIDER_MODELS[provider][0];
+      const providerMeta = PROVIDER_META[provider];
+      
+      templates[provider] = {
+        id: provider,
+        name: option.name,
+        provider: providerMeta.provider,
+        avatarColor: providerMeta.avatarColor,
+        borderColor: providerMeta.borderColor,
+        textColor: providerMeta.textColor,
+        accentBg: providerMeta.accentBg,
+        inputCostPer1K: option.inputCostPer1K,
+        outputCostPer1K: option.outputCostPer1K,
+        strength: option.strength,
+        placeholderKey: providerMeta.placeholderKey,
+        rawResponseTemplate: option.rawResponseTemplate
+      };
+    });
+    return templates;
+  }, [selectedModelIds]);
+
   // Orchestrator Configuration Defaults
   const [numWorkers, setNumWorkers] = useState(3);
   const [selectedWorkers, setSelectedWorkers] = useState<string[]>(["openai", "mistral", "claude"]);
-  const [selectedEvaluator, setSelectedEvaluator] = useState<string>("claude");
+  const [selectedEvaluator, setSelectedEvaluator] = useState<string | null>("claude");
   const [autoTitleModel, setAutoTitleModel] = useState<string>("mistral");
 
   // UI state machine for orchestrator execution
@@ -243,6 +415,16 @@ export default function App() {
     }
 
     const storage = isGuest ? sessionStorage : localStorage;
+
+    // Load selected models
+    const savedModels = storage.getItem("orchestrator_selected_models");
+    if (savedModels) {
+      try {
+        setSelectedModelIds(JSON.parse(savedModels));
+      } catch (e) {
+        console.error("Failed to parse saved models", e);
+      }
+    }
 
     // Load keys
     const savedKeys = storage.getItem("orchestrator_keys");
@@ -296,13 +478,15 @@ export default function App() {
     updatedChats: Chat[],
     updatedKeys: Record<string, string>,
     counter = nextChatCounter,
-    updatedApiConfigs = apiErrorConfigs
+    updatedApiConfigs = apiErrorConfigs,
+    updatedModels = selectedModelIds
   ) => {
     const storage = user ? localStorage : sessionStorage;
     storage.setItem("orchestrator_chats", JSON.stringify(updatedChats));
     storage.setItem("orchestrator_keys", JSON.stringify(updatedKeys));
     storage.setItem("orchestrator_chat_counter", counter.toString());
     storage.setItem("orchestrator_api_configs", JSON.stringify(updatedApiConfigs));
+    storage.setItem("orchestrator_selected_models", JSON.stringify(updatedModels));
   };
 
   // Auto-scroll handler
@@ -334,6 +518,7 @@ export default function App() {
     localStorage.setItem("orchestrator_keys", JSON.stringify(apiKeys));
     localStorage.setItem("orchestrator_chat_counter", nextChatCounter.toString());
     localStorage.setItem("orchestrator_api_configs", JSON.stringify(apiErrorConfigs));
+    localStorage.setItem("orchestrator_selected_models", JSON.stringify(selectedModelIds));
   };
 
   const handleSignOut = () => {
@@ -343,6 +528,7 @@ export default function App() {
     sessionStorage.removeItem("orchestrator_keys");
     sessionStorage.removeItem("orchestrator_chat_counter");
     sessionStorage.removeItem("orchestrator_api_configs");
+    sessionStorage.removeItem("orchestrator_selected_models");
     // Reset core states to defaults (no chats, empty keys)
     setChats([]);
     setActiveChatId(null);
@@ -367,6 +553,13 @@ export default function App() {
       gemini: "success",
       deepseek: "success",
       mistral: "success"
+    });
+    setSelectedModelIds({
+      openai: "gpt-4o",
+      claude: "claude-3-5-sonnet",
+      gemini: "gemini-1-5-pro",
+      deepseek: "deepseek-v3",
+      mistral: "mistral-large"
     });
   };
 
@@ -594,61 +787,64 @@ export default function App() {
       });
 
       // Process Evaluator
-      const evalConfig = MODEL_TEMPLATES[selectedEvaluator];
-      
-      // Runtime key check for Evaluator
-      const evalKey = apiKeys[selectedEvaluator];
-      const evalCheckState = checkKeyValidity(selectedEvaluator, evalKey);
-      const isEvalKeyError = evalCheckState === "empty" || evalCheckState === "invalid" || apiErrorConfigs[selectedEvaluator] === "key_error";
-      
-      const evalErrorState = isEvalKeyError ? "key_error" : apiErrorConfigs[selectedEvaluator];
-      
       let evaluatorFailed = false;
       let evaluatorErrorText = "";
 
-      if (evalErrorState === "success") {
-        const evalInputT = Math.floor(Math.random() * 100) + 150;
-        const evalOutputT = Math.floor(Math.random() * 200) + 300;
-        const evalCostVal = (evalInputT * (evalConfig.inputCostPer1K / 1000)) + (evalOutputT * (evalConfig.outputCostPer1K / 1000));
-        const evalLatencyVal = parseFloat((Math.random() * 0.5 + 0.4).toFixed(2));
+      if (selectedEvaluator) {
+        const evalConfig = MODEL_TEMPLATES[selectedEvaluator];
+        
+        // Runtime key check for Evaluator
+        const evalKey = apiKeys[selectedEvaluator];
+        const evalCheckState = checkKeyValidity(selectedEvaluator, evalKey);
+        const isEvalKeyError = evalCheckState === "empty" || evalCheckState === "invalid" || apiErrorConfigs[selectedEvaluator] === "key_error";
+        
+        const evalErrorState = isEvalKeyError ? "key_error" : apiErrorConfigs[selectedEvaluator];
 
-        finalStats[selectedEvaluator] = {
-          status: "done",
-          latency: evalLatencyVal,
-          inputTokens: finalStats[selectedEvaluator]?.inputTokens 
-            ? finalStats[selectedEvaluator].inputTokens + evalInputT 
-            : evalInputT,
-          outputTokens: finalStats[selectedEvaluator]?.outputTokens 
-            ? finalStats[selectedEvaluator].outputTokens + evalOutputT 
-            : evalOutputT,
-          cost: parseFloat(((finalStats[selectedEvaluator]?.cost || 0) + evalCostVal).toFixed(6)),
-          rawResponse: evalConfig.rawResponseTemplate
-        };
-      } else {
-        evaluatorFailed = true;
-        if (evalErrorState === "key_error") {
-          keyErrorModels.push(evalConfig.name);
+        if (evalErrorState === "success") {
+          const evalInputT = Math.floor(Math.random() * 100) + 150;
+          const evalOutputT = Math.floor(Math.random() * 200) + 300;
+          const evalCostVal = (evalInputT * (evalConfig.inputCostPer1K / 1000)) + (evalOutputT * (evalConfig.outputCostPer1K / 1000));
+          const evalLatencyVal = parseFloat((Math.random() * 0.5 + 0.4).toFixed(2));
+
+          finalStats[selectedEvaluator] = {
+            status: "done",
+            latency: evalLatencyVal,
+            inputTokens: finalStats[selectedEvaluator]?.inputTokens 
+              ? finalStats[selectedEvaluator].inputTokens + evalInputT 
+              : evalInputT,
+            outputTokens: finalStats[selectedEvaluator]?.outputTokens 
+              ? finalStats[selectedEvaluator].outputTokens + evalOutputT 
+              : evalOutputT,
+            cost: parseFloat(((finalStats[selectedEvaluator]?.cost || 0) + evalCostVal).toFixed(6)),
+            rawResponse: evalConfig.rawResponseTemplate
+          };
+        } else {
+          evaluatorFailed = true;
+          if (evalErrorState === "key_error") {
+            keyErrorModels.push(evalConfig.name);
+          }
+          evaluatorErrorText = evalErrorState === "key_error" 
+            ? `Key Error (Invalid Credentials) on ${evalConfig.name}` 
+            : evalErrorState === "rate_limit" 
+            ? `Rate Limit Exceeded (HTTP 429) on ${evalConfig.name}` 
+            : `Gateway Connection Timeout on ${evalConfig.name}`;
+
+          finalStats[selectedEvaluator] = {
+            status: evalErrorState,
+            latency: 0.18,
+            inputTokens: 0,
+            outputTokens: 0,
+            cost: 0,
+            rawResponse: `API Evaluator Error: [${evalErrorState.toUpperCase()}] Model evaluation failed.`
+          };
         }
-        evaluatorErrorText = evalErrorState === "key_error" 
-          ? `Key Error (Invalid Credentials) on ${evalConfig.name}` 
-          : evalErrorState === "rate_limit" 
-          ? `Rate Limit Exceeded (HTTP 429) on ${evalConfig.name}` 
-          : `Gateway Connection Timeout on ${evalConfig.name}`;
-
-        finalStats[selectedEvaluator] = {
-          status: evalErrorState,
-          latency: 0.18,
-          inputTokens: 0,
-          outputTokens: 0,
-          cost: 0,
-          rawResponse: `API Evaluator Error: [${evalErrorState.toUpperCase()}] Model evaluation failed.`
-        };
       }
 
       // Compile assistant synthesis report text
       let synthesisContent = "";
 
       if (evaluatorFailed) {
+        const evalConfig = MODEL_TEMPLATES[selectedEvaluator!];
         synthesisContent = `### Orchestrator Evaluation Failure
 
 ⚠️ **The synthesis step aborted because the Evaluator Model (${evalConfig.name}) encountered a critical API error:**
@@ -673,17 +869,21 @@ ${failedWorkers.map(fw => `> * **${fw.name}**: ${fw.errorType}`).join("\n")}
 ---`
           : "";
 
-        synthesisContent = `### ${evalConfig.name} Evaluator Synthesized Response
+        const evalHeader = selectedEvaluator 
+          ? `### ${MODEL_TEMPLATES[selectedEvaluator]?.name} Evaluator Synthesized Response` 
+          : `### Consolidated Worker Response (No Evaluator)`;
+
+        synthesisContent = `${evalHeader}
 
 ${warningsSection}
 
-This report consolidates response streams gathered concurrently from: **${healthyWorkers.map(id => MODEL_TEMPLATES[id].name).join(", ")}** workers.
+This report consolidates response streams gathered concurrently from: **${healthyWorkers.map(id => MODEL_TEMPLATES[id]?.name || id).join(", ")}** workers.
 
 #### 1. Synthesis Insights
 Based on healthy data streams, MergeSort guarantees strict bounds for large-scale operations. QuickSort is recommended for in-memory stack arrays where stable alignment is not required.
 
 #### 2. Models Specializations Integrated
-${healthyWorkers.map(id => `* **${MODEL_TEMPLATES[id].name}**: ${MODEL_TEMPLATES[id].strength}`).join("\n")}
+${healthyWorkers.map(id => `* **${MODEL_TEMPLATES[id]?.name || id}**: ${MODEL_TEMPLATES[id]?.strength || ""}`).join("\n")}
 
 #### 3. Execution recommendation
 Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints. Choose MergeSort if you require stable sorting sequences across composite database indices.`;
@@ -725,7 +925,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
   const totalUserCost = calculateTotalUserCost();
 
   // Filtered right card list (Only showing selected workers & evaluator)
-  const activeRightSideCardIds = Array.from(new Set([...selectedWorkers, selectedEvaluator]));
+  const activeRightSideCardIds = Array.from(new Set([...selectedWorkers, ...(selectedEvaluator ? [selectedEvaluator] : [])]));
 
   // Auto-title settings config text
   const currentAutoTitleModelName = MODEL_TEMPLATES[autoTitleModel]?.name || "Mistral Large";
@@ -743,9 +943,9 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
       )}
 
       <aside 
-        className={`fixed inset-y-0 left-0 z-40 flex flex-col w-72 border-r border-border-subtle bg-bg-surface transition-transform duration-300 transform lg:translate-x-0 lg:static shrink-0 overflow-hidden ${
+        className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-border-subtle bg-bg-surface transition-transform duration-300 transform w-72 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        } lg:static ${sidebarOpen ? "lg:w-72 lg:translate-x-0" : "lg:w-0 lg:-translate-x-full"} shrink-0 overflow-hidden`}
       >
         {/* Brand & Auth Area */}
         <div className="flex flex-col border-b border-border-subtle bg-bg-surface p-4 gap-4">
@@ -950,8 +1150,9 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
           <div className="flex items-center gap-3">
             {/* Sidebar toggle for mobile */}
             <button 
-              onClick={() => setSidebarOpen(true)}
-              className="lg:hidden text-text-secondary hover:text-text-primary p-1 rounded-md hover:bg-bg-surface-raised transition"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="text-text-secondary hover:text-text-primary p-1 rounded-md hover:bg-bg-surface-raised transition"
+              title="Toggle chat sidebar"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5.5 h-5.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
@@ -1069,7 +1270,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                 <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-text-secondary">
                   <div>Workers Selectable: <span className="text-text-primary">{numWorkers} Limit</span></div>
                   <div>Active Workers: <span className="text-text-primary">{selectedWorkers.map(id => MODEL_TEMPLATES[id]?.name).join(", ")}</span></div>
-                  <div className="col-span-2">Evaluator Model: <span className="text-accent-secondary font-bold">{MODEL_TEMPLATES[selectedEvaluator]?.name}</span></div>
+                  <div className="col-span-2">Evaluator Model: <span className="text-accent-secondary font-bold">{selectedEvaluator ? (MODEL_TEMPLATES[selectedEvaluator]?.name || selectedEvaluator) : "None (Consolidated)"}</span></div>
                   <div className="col-span-2">Auto-Title Model: <span className="text-text-primary">{currentAutoTitleModelName}</span></div>
                 </div>
               </div>
@@ -1129,7 +1330,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                     {/* Message Body */}
                     <div className="space-y-1.5 flex-1 min-w-0">
                       <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-wider">
-                        {isUser ? "User Query" : `${MODEL_TEMPLATES[selectedEvaluator]?.name} Evaluator Synthesis`}
+                        {isUser ? "User Query" : selectedEvaluator ? `${MODEL_TEMPLATES[selectedEvaluator]?.name || selectedEvaluator} Evaluator Synthesis` : "Consolidated Worker Synthesis"}
                       </p>
                       
                       <div className="prose prose-invert max-w-none text-text-primary text-xs sm:text-sm whitespace-pre-wrap leading-relaxed">
@@ -1180,7 +1381,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                   <div className="space-y-2 flex-1">
                     <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-wider">Orchestrator running...</p>
                     <p className="text-xs text-text-secondary font-medium">
-                      Querying workers ({selectedWorkers.map(id => MODEL_TEMPLATES[id]?.name).join(", ")}) concurrently. Synthesizing answers via {MODEL_TEMPLATES[selectedEvaluator]?.name}...
+                      Querying workers ({selectedWorkers.map(id => MODEL_TEMPLATES[id]?.name || id).join(", ")}) concurrently.{selectedEvaluator ? ` Synthesizing answers via ${MODEL_TEMPLATES[selectedEvaluator]?.name || selectedEvaluator}...` : " Consolidating worker responses..."}
                     </p>
                     <div className="h-1.5 w-48 bg-bg-surface rounded-full overflow-hidden">
                       <div className="h-full bg-accent-primary rounded-full animate-infinite-progress" style={{ width: "60%" }}></div>
@@ -1494,10 +1695,50 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
               </div>
             </div>
 
+            {/* MODEL CUSTOMIZATION CONFIG SECTION */}
+            <div className="space-y-4 pt-4 border-t border-border-subtle text-left">
+              <div className="flex justify-between items-center">
+                <h4 className="text-xs font-bold text-accent-primary uppercase tracking-wider">2. Model Selection per LLM Type</h4>
+                <span className="text-[9px] text-text-tertiary font-mono">Choose active version for each provider</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-bg-base/35 border border-border-subtle p-3 rounded-lg">
+                {Object.keys(PROVIDER_MODELS).map((providerId) => {
+                  const providerMeta = PROVIDER_META[providerId];
+                  const models = PROVIDER_MODELS[providerId];
+                  return (
+                    <div key={providerId} className="space-y-1.5 text-xs">
+                      <label className="font-semibold text-text-secondary flex items-center gap-1.5">
+                        <span className={`h-2 w-2 rounded-full ${providerMeta.avatarColor}`} />
+                        {providerMeta.provider} Model
+                      </label>
+                      <select
+                        value={selectedModelIds[providerId]}
+                        onChange={(e) => {
+                          const updated = { ...selectedModelIds, [providerId]: e.target.value };
+                          setSelectedModelIds(updated);
+                          // Auto-save key to storage
+                          const storage = user ? localStorage : sessionStorage;
+                          storage.setItem("orchestrator_selected_models", JSON.stringify(updated));
+                        }}
+                        className="w-full bg-bg-surface-raised border border-border-subtle rounded-md px-2.5 py-1.5 text-[11px] text-text-primary outline-none focus:border-accent-primary transition-all font-mono"
+                      >
+                        {models.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name} (${(m.inputCostPer1K * 1000).toFixed(4)}/M, ${(m.outputCostPer1K * 1000).toFixed(4)}/M)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* API SIMULATOR ERROR CONFIGURATION SECTION */}
             <div className="space-y-4 pt-4 border-t border-border-subtle text-left">
               <div className="flex justify-between items-center">
-                <h4 className="text-xs font-bold text-accent-primary uppercase tracking-wider">2. API Call Error Simulator</h4>
+                <h4 className="text-xs font-bold text-accent-primary uppercase tracking-wider">3. API Call Error Simulator</h4>
                 <span className="text-[9px] text-text-tertiary font-mono">Configure runtime response states</span>
               </div>
 
@@ -1531,7 +1772,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
             <div className="space-y-4 pt-4 border-t border-border-subtle text-left">
               
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-accent-primary uppercase tracking-wider">3. Worker Pipeline Routing</h4>
+                <h4 className="text-xs font-bold text-accent-primary uppercase tracking-wider">4. Worker Pipeline Routing</h4>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-text-secondary font-semibold">Max concurrent workers:</span>
                   <select 
@@ -1583,7 +1824,18 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                 <div className="flex items-center justify-between">
                   <p className="text-[11px] font-semibold text-text-secondary">Evaluator Model (marked with red tick):</p>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
+                  <button
+                    onClick={() => setSelectedEvaluator(null)}
+                    className={`flex items-center justify-between p-2 rounded-md border text-xs transition duration-150 ${
+                      selectedEvaluator === null 
+                        ? "bg-accent-secondary-bg border-accent-secondary/30 text-accent-secondary font-bold" 
+                        : "border-border-subtle bg-bg-base/20 text-text-secondary hover:bg-bg-surface-raised"
+                    }`}
+                  >
+                    <span>None (Skip)</span>
+                    {selectedEvaluator === null && <span className="text-accent-secondary font-bold text-[10px]">✓</span>}
+                  </button>
                   {Object.keys(MODEL_TEMPLATES).map((id) => {
                     const config = MODEL_TEMPLATES[id];
                     const isSelected = selectedEvaluator === id;
@@ -1635,7 +1887,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
               <button
                 onClick={() => {
                   setKeysModalOpen(false);
-                  saveStateToStorage(chats, apiKeys, nextChatCounter, apiErrorConfigs);
+                  saveStateToStorage(chats, apiKeys, nextChatCounter, apiErrorConfigs, selectedModelIds);
                   alert("Settings successfully written to storage!");
                 }}
                 className="px-4 py-2 rounded-md bg-accent-primary hover:bg-accent-primary-hover text-white text-xs font-semibold shadow-md shadow-accent-primary/20 transition duration-200"
