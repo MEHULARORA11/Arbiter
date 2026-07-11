@@ -327,7 +327,7 @@ export default function App() {
   // ==================== CORE STATE ====================
 
   // Auth
-  const [user, setUser] = useState<{ name: string; email: string } | null>(null);
+  const [user, setUser] = useState<{ name: string; email: string } | null>(null); // helpseeker // tokens info
 
   // Layout View Controls
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -428,10 +428,12 @@ export default function App() {
   // DOM Refs for Auto-Scroll
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const inputWrapperRef = useRef<HTMLDivElement>(null);// helpseeker
 
   // ==================== INITIALIZATION & PERSISTENCE ====================
 
-  useEffect(() => {
+  useEffect(() => { // helpseeker
     // Check if session storage is active
     const savedLogin = sessionStorage.getItem("is_logged_in");
     let isGuest = true;
@@ -500,7 +502,7 @@ export default function App() {
   }, []);
 
   // Sync state helpers
-  const saveStateToStorage = (
+  const saveStateToStorage = (// helpseeker
     updatedChats: Chat[],
     updatedKeys: Record<string, string>,
     counter = nextChatCounter,
@@ -516,9 +518,46 @@ export default function App() {
   };
 
   // Auto-scroll handler
-  useEffect(() => {
+  useEffect(() => {// helpseeker
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chats, pipelineState, activeChatId]);
+
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      if (e.key === "/") {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        inputWrapperRef.current &&
+        !inputWrapperRef.current.contains(e.target as Node)
+      ) {
+        inputRef.current?.blur();// helpseeker
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Handle worker selection limit according to choose number of workers
   const handleToggleWorker = (modelId: string) => {
@@ -665,6 +704,7 @@ export default function App() {
   // ==================== CORE ORCHESTRATION PIPELINE SIMULATOR ====================
 
   const handleTriggerOrchestrate = (queryText: string) => {
+    if (pipelineState === "running") return;
     if (!queryText.trim()) return;
     setActiveErrorMessage(null);
 
@@ -1463,7 +1503,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
           <div className="max-w-3xl mx-auto relative">
             
             {/* Input Bar */}
-            <div className="relative flex items-center rounded-lg border border-border-subtle bg-bg-surface focus-within:border-accent-primary focus-within:ring-1 focus-within:ring-accent-primary/10 transition-all p-2 gap-3">
+            <div ref={inputWrapperRef} className="relative flex items-center rounded-lg border border-border-subtle bg-bg-surface focus-within:border-accent-primary focus-within:ring-1 focus-within:ring-accent-primary/10 transition-all p-2 gap-3">
               
               <button 
                 onClick={() => setKeysModalOpen(true)}
@@ -1476,16 +1516,21 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
               </button>
  
               <input
+                ref={inputRef}
                 type="text"
                 placeholder="Ask ApexRouter (e.g. Compare QuickSort vs MergeSort)..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
+                    e.preventDefault();
                     handleTriggerOrchestrate(searchQuery);
+                    requestAnimationFrame(() => {
+                      inputRef.current?.focus();
+                    });
                   }
                 }}
-                disabled={pipelineState === "running"}
+                
                 className="flex-1 bg-transparent text-xs sm:text-sm text-text-primary placeholder-text-tertiary outline-none disabled:text-text-tertiary"
               />
  
