@@ -1,6 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import { marked } from "marked";
+import { checkKeyValidity } from "@/lib/validation/apiKeys";
+import { authFetch } from "@/lib/client/authFetch";
+import { calculateRunCost } from "@/lib/agents/utils";
 
 // ==================== METADATA & CONSTANTS ====================
 
@@ -78,186 +83,263 @@ const PROVIDER_META: Record<string, {
   }
 };
 
-const PROVIDER_MODELS: Record<string, ModelOption[]> = { // helpseeker // tokens info
+const PROVIDER_MODELS: Record<string, ModelOption[]> = {
   openai: [
+    {
+      id: "gpt-5.4",
+      name: "GPT-5.4",
+      inputCostPer1K: 0.0025,
+      outputCostPer1K: 0.0150,
+      strength: "General purpose high intelligence model.",
+      rawResponseTemplate: `### OpenAI GPT-5.4 Response
+Here is the requested sorting analysis:
+* **QuickSort**: Average $O(n \log n)$, Worst $O(n^2)$. Very fast in-place partitioning.
+* **MergeSort**: Always $O(n \log n)$. Stable, preserves index sequences, but uses $O(n)$ extra memory.`
+    },
+    {
+      id: "gpt-5.4-mini",
+      name: "GPT-5.4 Mini",
+      inputCostPer1K: 0.00075,
+      outputCostPer1K: 0.0045,
+      strength: "Super fast, lightweight tasks, extremely cost-efficient.",
+      rawResponseTemplate: `### OpenAI GPT-5.4 Mini Response
+Brief sorting recap:
+* **QuickSort**: Fast, in-place, unstable. $O(n \log n)$ average.
+* **MergeSort**: Stable, requires $O(n)$ space.`
+    },
+    {
+      id: "gpt-5.6-sol",
+      name: "GPT-5.6 Sol",
+      inputCostPer1K: 0.0050,
+      outputCostPer1K: 0.0300,
+      strength: "State-of-the-art flagship model.",
+      rawResponseTemplate: `### OpenAI GPT-5.6 Sol Response
+Sorting analysis on flagship scale:
+1. QuickSort partitions in place. This makes it cache-friendly since memory access is sequential.
+2. MergeSort divides and conquers, but the merge step is stable.`
+    },
+    {
+      id: "gpt-5.6-terra",
+      name: "GPT-5.6 Terra",
+      inputCostPer1K: 0.0025,
+      outputCostPer1K: 0.0150,
+      strength: "Balanced performance and efficiency.",
+      rawResponseTemplate: `### OpenAI GPT-5.6 Terra Response
+Terra balanced sorting analysis.`
+    },
     {
       id: "gpt-4o",
       name: "GPT-4o",
       inputCostPer1K: 0.0025,
       outputCostPer1K: 0.0100,
-      strength: "Precise coding & highly optimized execution syntax.",
+      strength: "Stable legacy flagship model.",
       rawResponseTemplate: `### OpenAI GPT-4o Response
-Here is the requested sorting analysis:
-* **QuickSort**: Average $O(n \\log n)$, Worst $O(n^2)$. In-place partitioning. Very fast on primitives due to cache locality.
-* **MergeSort**: Always $O(n \\log n)$. Stable, preserves index sequences, but uses $O(n)$ extra memory.
-\`\`\`python
-def quicksort(arr):
-    if len(arr) <= 1: return arr
-    pivot = arr[len(arr)//2]
-    return quicksort([x for x in arr if x < pivot]) + [x for x in arr if x == pivot] + quicksort([x for x in arr if x > pivot])
-\`\`\``
+GPT-4o sorting comparison:
+- QuickSort: Fast partition-based sorting.
+- MergeSort: Stable division-based sorting.`
     },
     {
       id: "gpt-4o-mini",
       name: "GPT-4o Mini",
       inputCostPer1K: 0.00015,
-      outputCostPer1K: 0.00060,
-      strength: "Super fast, lightweight tasks, extremely cost-efficient.",
+      outputCostPer1K: 0.0006,
+      strength: "Cost-efficient lightweight stable model.",
       rawResponseTemplate: `### OpenAI GPT-4o Mini Response
-Brief sorting recap:
-* **QuickSort**: Fast, in-place, unstable. $O(n \\log n)$ average.
-* **MergeSort**: Stable, requires $O(n)$ space.
-\`\`\`python
-# Simple mini quicksort
-def quicksort(arr):
-    return sorted(arr)
-\`\`\``
-    },
-    {
-      id: "o1-preview",
-      name: "OpenAI o1 Preview",
-      inputCostPer1K: 0.0150,
-      outputCostPer1K: 0.0600,
-      strength: "Deep multi-step reasoning, complex algorithm synthesis.",
-      rawResponseTemplate: `### OpenAI o1 Preview Response
-Let us reason step-by-step about sorting stability and caching:
-1. QuickSort partitions in place. This makes it cache-friendly since memory access is sequential.
-2. MergeSort divides and conquers, but the merge step is stable. We need stable sorting when sorting records by primary and secondary keys.`
+GPT-4o Mini fast sorting overview.`
     }
   ],
   claude: [
     {
-      id: "claude-3-5-sonnet",
+      id: "claude-sonnet-5",
+      name: "Claude Sonnet 5",
+      inputCostPer1K: 0.0020,
+      outputCostPer1K: 0.0100,
+      strength: "Architectural reasoning, edge case handling, and complexity bounds.",
+      rawResponseTemplate: `### Claude Sonnet 5 Response
+Evaluating sorting architectures:
+* **Memory Limits**: MergeSort auxiliary array space can cause OOM on heap limits. QuickSort uses stack memory $O(\log n)$.
+* **Stability Requirement**: If sorting complex data elements, MergeSort's stable merge preserves historical orders.`
+    },
+    {
+      id: "claude-haiku-4-5-20251001",
+      name: "Claude Haiku 4.5",
+      inputCostPer1K: 0.0010,
+      outputCostPer1K: 0.0050,
+      strength: "Rapid text generation, fast coding suggestions.",
+      rawResponseTemplate: `### Claude Haiku 4.5 Response
+Quick summary of QuickSort and MergeSort:
+* **QuickSort**: $O(n \log n)$ average, $O(n^2)$ worst-case. Not stable.
+* **MergeSort**: $O(n \log n)$ always. Stable.`
+    },
+    {
+      id: "claude-opus-4-8",
+      name: "Claude Opus 4.8",
+      inputCostPer1K: 0.0050,
+      outputCostPer1K: 0.0250,
+      strength: "High-level planning, deep conceptual explanations.",
+      rawResponseTemplate: `### Claude Opus 4.8 Response
+A comprehensive analysis of divide-and-conquer sorting algorithms:
+* In systems with virtual memory, the non-locality of MergeSort's merge phase can induce page faults.`
+    },
+    {
+      id: "claude-3-5-sonnet-20241022",
       name: "Claude 3.5 Sonnet",
       inputCostPer1K: 0.0030,
       outputCostPer1K: 0.0150,
-      strength: "Architectural reasoning, edge case handling, and complexity bounds.",
+      strength: "Highly capable reasoning and software engineering model.",
       rawResponseTemplate: `### Claude 3.5 Sonnet Response
-Evaluating sorting architectures:
-* **Memory Limits**: MergeSort auxiliary array space can cause OOM on heap limits. QuickSort uses stack memory $O(\\log n)$.
-* **Stability Requirement**: If sorting complex data elements (e.g. database records with composite keys), MergeSort's stable merge preserves historical orders.
-\`\`\`python
-def mergesort(arr):
-    if len(arr) <= 1: return arr
-    mid = len(arr) // 2
-    left, right = mergesort(arr[:mid]), mergesort(arr[mid:])
-    return merge(left, right)
-\`\`\``
+Evaluating sorting algorithms in Claude 3.5 Sonnet.`
     },
     {
-      id: "claude-3-5-haiku",
+      id: "claude-3-5-haiku-20241022",
       name: "Claude 3.5 Haiku",
-      inputCostPer1K: 0.00080,
-      outputCostPer1K: 0.00400,
-      strength: "Rapid text generation, fast coding suggestions.",
+      inputCostPer1K: 0.0008,
+      outputCostPer1K: 0.0040,
+      strength: "Fast, balanced legacy model.",
       rawResponseTemplate: `### Claude 3.5 Haiku Response
-Quick summary of QuickSort and MergeSort:
-* **QuickSort**: $O(n \\log n)$ average, $O(n^2)$ worst-case. Not stable.
-* **MergeSort**: $O(n \\log n)$ always. Stable.`
-    },
-    {
-      id: "claude-3-opus",
-      name: "Claude 3 Opus",
-      inputCostPer1K: 0.0150,
-      outputCostPer1K: 0.0750,
-      strength: "High-level planning, deep conceptual explanations.",
-      rawResponseTemplate: `### Claude 3 Opus Response
-A comprehensive analysis of divide-and-conquer sorting algorithms:
-* In systems with virtual memory, the non-locality of MergeSort's merge phase can induce page faults.
-* QuickSort's partition phase maintains high spatial locality.`
+Fast legacy sorting suggestions.`
     }
   ],
   gemini: [
     {
-      id: "gemini-1-5-pro",
-      name: "Gemini 1.5 Pro",
-      inputCostPer1K: 0.00125,
-      outputCostPer1K: 0.00375,
-      strength: "Explanatory analogies, context windows, and structured flows.",
-      rawResponseTemplate: `### Gemini 1.5 Pro Response
-Think of sorting like sorting a library book shelf:
-* **MergeSort**: You break the shelf into 2 halves, ask 2 assistants to sort them separately, and merge. Safe, but you need table space equal to the shelf size ($O(n)$ space).
-* **QuickSort**: You pick a random book (pivot), place all thinner books to the left and thicker to the right. Fast, but if you pick the thinnest book every time, you sort one-by-one ($O(n^2)$ worst case).`
-    },
-    {
-      id: "gemini-1-5-flash",
-      name: "Gemini 1.5 Flash",
-      inputCostPer1K: 0.000075,
-      outputCostPer1K: 0.00030,
-      strength: "High-frequency, low-latency API calls, large context window.",
-      rawResponseTemplate: `### Gemini 1.5 Flash Response
+      id: "gemini-2.5-flash",
+      name: "Gemini 2.5 Flash",
+      inputCostPer1K: 0.0003,
+      outputCostPer1K: 0.0025,
+      strength: "Ultra-fast response with 1M context window.",
+      rawResponseTemplate: `### Gemini 2.5 Flash Response
 Here is a fast review:
 * QuickSort: fast, in-place ($O(1)$ auxiliary space if tail-optimized).
 * MergeSort: stable sorting ($O(n)$ space required).`
+    },
+    {
+      id: "gemini-3.5-flash",
+      name: "Gemini 3.5 Flash",
+      inputCostPer1K: 0.0015,
+      outputCostPer1K: 0.0090,
+      strength: "Free tier rate-limited, high context flash model.",
+      rawResponseTemplate: `### Gemini 3.5 Flash Response
+Expository review:
+* **MergeSort**: safe, but auxiliary space required is $O(n)$.
+* **QuickSort**: very fast cache locality swap operations.`
+    },
+    {
+      id: "gemini-3.1-pro-preview",
+      name: "Gemini 3.1 Pro Preview",
+      inputCostPer1K: 0.0020,
+      outputCostPer1K: 0.0120,
+      strength: "Advanced coding and multimodal reasoning model.",
+      rawResponseTemplate: `### Gemini 3.1 Pro Response
+Tiered pricing applied based on context window prompt size.`
+    },
+    {
+      id: "gemini-2.5-pro",
+      name: "Gemini 2.5 Pro",
+      inputCostPer1K: 0.00125,
+      outputCostPer1K: 0.0100,
+      strength: "Robust reasoning with 1M-2M context window.",
+      rawResponseTemplate: `### Gemini 2.5 Pro Response
+Think of sorting like sorting a library book shelf:
+* **MergeSort**: You break the shelf into 2 halves, ask 2 assistants to sort them separately, and merge.
+* **QuickSort**: You pick a random book (pivot), place all thinner books to the left and thicker to the right.`
+    },
+    {
+      id: "gemini-1.5-pro",
+      name: "Gemini 1.5 Pro",
+      inputCostPer1K: 0.00125,
+      outputCostPer1K: 0.00375,
+      strength: "Legacy reasoning model with large context.",
+      rawResponseTemplate: `### Gemini 1.5 Pro Response
+Legacy context-based sorting.`
+    },
+    {
+      id: "gemini-1.5-flash",
+      name: "Gemini 1.5 Flash",
+      inputCostPer1K: 0.000075,
+      outputCostPer1K: 0.0003,
+      strength: "Legacy high-speed model.",
+      rawResponseTemplate: `### Gemini 1.5 Flash Response
+Fast legacy review.`
     }
   ],
   deepseek: [
     {
-      id: "deepseek-v3",
-      name: "DeepSeek V3",
+      id: "deepseek-v4-flash",
+      name: "DeepSeek V4 Flash",
       inputCostPer1K: 0.00014,
       outputCostPer1K: 0.00028,
-      strength: "Extremely cost-effective mathematical reasoning and clean logic.",
-      rawResponseTemplate: `### DeepSeek V3 Response
+      strength: "Extremely cost-effective reasoning and clean logic.",
+      rawResponseTemplate: `### DeepSeek V4 Flash Response
 Analyzing recursive optimizations:
-* QuickSort is standard in libraries like C++ std::sort (IntroSort fallback) due to pointer cache benefits.
-* DeepSeek recommends median-of-three, we practically avoid the worst-case quadratic complexity:
-\`\`\`python
-# Median-of-three pivot quicksort helper
-def median_of_three(a, b, c):
-    return sorted([a, b, c])[1]
-\`\`\``
+* QuickSort is standard in libraries like C++ std::sort (IntroSort fallback) due to pointer cache benefits.`
     },
     {
-      id: "deepseek-r1",
-      name: "DeepSeek R1",
-      inputCostPer1K: 0.00055,
-      outputCostPer1K: 0.00219,
+      id: "deepseek-v4-pro",
+      name: "DeepSeek V4 Pro",
+      inputCostPer1K: 0.000435,
+      outputCostPer1K: 0.00087,
       strength: "Deep reasoning, chain of thought, math and coding logic.",
-      rawResponseTemplate: `### DeepSeek R1 Response
+      rawResponseTemplate: `### DeepSeek V4 Pro Response
 <thought>
 The user wants a comparison of QuickSort vs MergeSort.
 I should break down:
-1. Time complexity (average vs worst case).
-2. Space complexity.
-3. Cache performance.
-4. Stability.
+1. Time complexity.
+2. Cache performance.
 </thought>
-Comparing QuickSort and MergeSort:
-* QuickSort partitions in place. This makes it cache-friendly since memory access is sequential.
-* MergeSort divides and conquers, but the merge step is stable. We need stable sorting when sorting records by primary and secondary keys.`
+DeepSeek R1/Pro recommendations on sorting stability.`
+    },
+    {
+      id: "deepseek-chat",
+      name: "DeepSeek Chat (Legacy)",
+      inputCostPer1K: 0.00014,
+      outputCostPer1K: 0.00028,
+      strength: "Cost-effective legacy model.",
+      rawResponseTemplate: `### DeepSeek Chat Response
+Legacy chat response.`
+    },
+    {
+      id: "deepseek-reasoner",
+      name: "DeepSeek Reasoner (Legacy)",
+      inputCostPer1K: 0.000435,
+      outputCostPer1K: 0.00087,
+      strength: "Legacy reasoning model.",
+      rawResponseTemplate: `### DeepSeek Reasoner Response
+Legacy reasoner response.`
     }
   ],
   mistral: [
     {
-      id: "mistral-large",
-      name: "Mistral Large",
-      inputCostPer1K: 0.0020,
-      outputCostPer1K: 0.0060,
-      strength: "Systems design, European localization, and low overhead operations.",
-      rawResponseTemplate: `### Mistral Large Response
+      id: "mistral-large-latest",
+      name: "Mistral Large 3",
+      inputCostPer1K: 0.0005,
+      outputCostPer1K: 0.0015,
+      strength: "Systems design, localization, and low overhead.",
+      rawResponseTemplate: `### Mistral Large 3 Response
 Sorting complexity profile:
 * MergeSort is stable, parallelizable on disk blocks.
-* QuickSort worst-case stack is $O(n)$ without tail recursion optimization. With tail recursion, it is $O(\\log n)$.
-* Mistral Large prioritizes cache friendliness: arrays fit cache lines, so QuickSort swaps are blazing fast.`
+* QuickSort swaps are blazing fast due to CPU cache alignments.`
     },
     {
-      id: "mistral-codestral",
+      id: "mistral-small-latest",
+      name: "Mistral Small 4",
+      inputCostPer1K: 0.00015,
+      outputCostPer1K: 0.0006,
+      strength: "Fast lightweight tasks.",
+      rawResponseTemplate: `### Mistral Small 4 Response
+Quick sorting recap summary.`
+    },
+    {
+      id: "codestral-latest",
       name: "Codestral",
-      inputCostPer1K: 0.0010,
-      outputCostPer1K: 0.0030,
-      strength: "Code generation, completion, and programming assistance.",
+      inputCostPer1K: 0.0003,
+      outputCostPer1K: 0.0009,
+      strength: "Code generation and completion.",
       rawResponseTemplate: `### Codestral Response
-Let's implement quicksort in Python:
+quicksort implementation in Python:
 \`\`\`python
 def quicksort(arr):
-    if len(arr) <= 1:
-        return arr
-    pivot = arr[len(arr) // 2]
-    left = [x for x in arr if x < pivot]
-    middle = [x for x in arr if x == pivot]
-    right = [x for x in arr if x > pivot]
-    return quicksort(left) + middle + quicksort(right)
+    # standard partition logic
+    return sorted(arr)
 \`\`\``
     }
   ]
@@ -275,59 +357,164 @@ interface Chat {
   // Stats tracked per chat per model (resets on chat switch)
   modelStats: Record<string, {
     latency: number;
+    ttft?: number | null;
     inputTokens: number;
+    cachedTokens?: number;
     outputTokens: number;
     cost: number;
-    status: "idle" | "running" | "done" | "key_error" | "rate_limit" | "timeout" | "failed";
+    status: "idle" | "running" | "success" | "key_error" | "rate_limit" | "timeout" | "error";
     rawResponse: string;
   }>;
 }
 
-// Simple Prefix Key Validation Checker
-const checkKeyValidity = (
-  provider: string,
-  key: string
-): "empty" | "valid" | "invalid" => {
-  if (!key?.trim()) return "empty";
+const generateMockTitle = (query: string): string => {
+  const clean = query.trim().toLowerCase();
+  if (clean.includes("sorting") || clean.includes("sort")) {
+    if (clean.includes("quicksort") || clean.includes("quick sort")) return "QuickSort Deep Dive";
+    if (clean.includes("mergesort") || clean.includes("merge sort")) return "MergeSort Analysis";
+    return "Sorting Algorithms Compared";
+  }
+  if (clean.includes("binary search") || clean.includes("search")) return "Search Algorithms";
+  if (clean.includes("complexity") || clean.includes("big o")) return "Time Complexity Analysis";
+  if (clean.includes("code") || clean.includes("python") || clean.includes("javascript")) return "Code Review";
+  
+  const words = query.trim().split(/\s+/).filter(w => w.length > 3);
+  if (words.length > 0) {
+    return words.slice(0, 4).map(w => w.charAt(0).toUpperCase() + w.slice(1).replace(/[^a-zA-Z0-9]/g, "")).join(" ");
+  }
+  return "New Conversation";
+};
 
-  const val = key.trim();
+async function consumeOrchestratorStream(
+  response: Response,
+  handlers: {
+    onWorkerStart: (data: { provider: string; modelId: string }) => void;
+    onWorkerDelta: (data: { provider: string; delta: string }) => void;
+    onWorkerDone: (data: { provider: string; modelId: string; inputTokens: number; cachedInputTokens: number; outputTokens: number; latencyMs: number; ttftMs: number | null }) => void;
+    onWorkerError: (data: { provider: string; modelId: string; errorType: string; message: string }) => void;
+    onEvaluatorStart: (data: { provider: string; modelId: string }) => void;
+    onEvaluatorDelta: (data: { delta: string }) => void;
+    onEvaluatorDone: (data: { provider: string; modelId: string; inputTokens: number; cachedInputTokens: number; outputTokens: number; latencyMs: number; ttftMs: number | null }) => void;
+    onFinalMessage: (data: { messageId: string; content: string; producedByModel: string; producedByRole: string }) => void;
+    onUsageSummary: (data: { chat: { inputTokens: number; outputTokens: number; costUsd: string }; user: { inputTokens: number; outputTokens: number; costUsd: string } }) => void;
+    onTitleUpdated?: (data: { chatId: string; title: string }) => void;
+    onError: (message: string) => void;
+  }
+) {
+  if (!response.body) {
+    handlers.onError("Empty response body returned by stream server.");
+    return;
+  }
 
-  const patterns: Record<string, RegExp> = {
-    // OpenAI
-    openai:
-      /^sk(?:-proj|-svcacct|-admin)?-[A-Za-z0-9_-]{20,}$/,
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  let buffer = "";
 
-    // Anthropic / Claude
-    claude:
-      /^sk-ant-api[0-9A-Za-z_-]{20,}$/,
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-    // Gemini (supports both old and new keys)
-    gemini:
-      /^(AIza[A-Za-z0-9_-]{20,}|AQ[A-Za-z0-9._-]{20,})$/,
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split("\n\n");
+      buffer = events.pop() || "";
 
-    // DeepSeek
-    deepseek:
-      /^sk-[A-Za-z0-9_-]{20,}$/,
+      for (const eventStr of events) {
+        if (!eventStr.trim()) continue;
+        const lines = eventStr.split("\n");
+        let event = "";
+        let data: any = null;
 
-    // Mistral
-    // Mistral keys don't have a guaranteed public prefix anymore,
-    // so only reject obviously invalid values.
-    mistral:
-      /^[A-Za-z0-9._-]{20,}$/
-  };
+        for (const line of lines) {
+          if (line.startsWith("event: ")) {
+            event = line.slice(7).trim();
+          } else if (line.startsWith("data: ")) {
+            try {
+              data = JSON.parse(line.slice(6).trim());
+            } catch (e) {}
+          }
+        }
 
-  const regex = patterns[provider.toLowerCase()];
+        if (!event || !data) continue;
 
-  if (!regex) return "invalid";
+        if (event === "worker_start") {
+          handlers.onWorkerStart(data);
+        } else if (event === "worker_delta") {
+          handlers.onWorkerDelta(data);
+        } else if (event === "worker_done") {
+          handlers.onWorkerDone(data);
+        } else if (event === "worker_error") {
+          handlers.onWorkerError(data);
+        } else if (event === "evaluator_start") {
+          handlers.onEvaluatorStart(data);
+        } else if (event === "evaluator_delta") {
+          handlers.onEvaluatorDelta(data);
+        } else if (event === "evaluator_done") {
+          handlers.onEvaluatorDone(data);
+        } else if (event === "final_message") {
+          handlers.onFinalMessage(data);
+        } else if (event === "usage_summary") {
+          handlers.onUsageSummary(data);
+        } else if (event === "title_updated" && handlers.onTitleUpdated) {
+          handlers.onTitleUpdated(data);
+        } else if (event === "error") {
+          handlers.onError(data.message);
+        }
+      }
+    }
+  } catch (err: any) {
+    handlers.onError(err.message || "Error parsing orchestrator stream.");
+  }
+}
 
-  return regex.test(val) ? "valid" : "invalid";
+const formatErrorMessage = (error: unknown): string => {
+  if (!error) return "An unknown error occurred.";
+  if (typeof error === "string") return error;
+  
+  if (typeof error === "object" && error !== null) {
+    const messages: string[] = [];
+    const errObj = error as Record<string, unknown>;
+    
+    if (errObj._errors && Array.isArray(errObj._errors) && errObj._errors.length > 0) {
+      messages.push(...(errObj._errors as string[]));
+    }
+    
+    Object.keys(errObj).forEach((key) => {
+      if (key === "_errors") return;
+      const fieldError = errObj[key];
+      if (fieldError && typeof fieldError === "object" && fieldError !== null) {
+        const fErr = fieldError as Record<string, unknown>;
+        if (Array.isArray(fErr._errors) && fErr._errors.length > 0) {
+          messages.push(`${key}: ${fErr._errors.join(", ")}`);
+        } else if (Array.isArray(fErr) && fErr.length > 0) {
+          messages.push(`${key}: ${fErr.join(", ")}`);
+        }
+      }
+    });
+
+    if (messages.length > 0) {
+      return messages.join("; ");
+    }
+    
+    try {
+      return JSON.stringify(error);
+    } catch {
+      return "An error occurred (failed to serialize details).";
+    }
+  }
+  
+  return String(error);
 };
 
 export default function App() {
   // ==================== CORE STATE ====================
 
+  // Models list state loaded from backend
+  const [providerModels, setProviderModels] = useState<Record<string, ModelOption[]>>(PROVIDER_MODELS);
+
   // Auth
-  const [user, setUser] = useState<{ name: string; email: string } | null>(null); // helpseeker // tokens info
+  const [user, setUser] = useState<{ id: string; name: string | null; email: string; avatarUrl?: string | null; totalInputTokens?: number; totalOutputTokens?: number; totalCostUsd?: string } | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   // Layout View Controls
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -341,6 +528,19 @@ export default function App() {
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editingChatTitle, setEditingChatTitle] = useState("");
 
+  // Server-side usage tracking
+  const [chatUsage, setChatUsage] = useState<{ inputTokens: number; outputTokens: number; costUsd: string }>({
+    inputTokens: 0,
+    outputTokens: 0,
+    costUsd: "0"
+  });
+  const [userUsage, setUserUsage] = useState<{ inputTokens: number; outputTokens: number; costUsd: string }>({
+    inputTokens: 0,
+    outputTokens: 0,
+    costUsd: "0"
+  });
+  const [showImportBanner, setShowImportBanner] = useState(false);
+
   // BYOK Credentials (Keys)
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({
     openai: "",
@@ -349,6 +549,9 @@ export default function App() {
     deepseek: "",
     mistral: ""
   });
+
+  // Credentials configured status from backend
+  const [credentialsMeta, setCredentialsMeta] = useState<Record<string, { hasKey: boolean; last4: string }>>({});
 
   // Key validation states for settings UI
   const [keyValidationStates, setKeyValidationStates] = useState<Record<string, "empty" | "valid" | "invalid">>({
@@ -359,7 +562,7 @@ export default function App() {
     mistral: "empty"
   });
 
-  // API Call Error Configuration Simulator
+  // API Call Error Configuration Simulator (GUEST ONLY)
   // 'success' | 'key_error' | 'rate_limit' | 'timeout'
   const [apiErrorConfigs, setApiErrorConfigs] = useState<Record<string, "success" | "key_error" | "rate_limit" | "timeout">>({
     openai: "success",
@@ -371,19 +574,37 @@ export default function App() {
 
   // Selected Model version choices per provider/LLM type
   const [selectedModelIds, setSelectedModelIds] = useState<Record<string, string>>({
-    openai: "gpt-4o",
-    claude: "claude-3-5-sonnet",
-    gemini: "gemini-1-5-pro",
-    deepseek: "deepseek-v3",
-    mistral: "mistral-large"
+    openai: "gpt-5.4",
+    claude: "claude-sonnet-5",
+    gemini: "gemini-2.5-flash",
+    deepseek: "deepseek-v4-flash",
+    mistral: "mistral-large-latest"
   });
+
+  // Helper to initialize clean stats
+  const getCleanStats = () => {
+    const initialStats: Record<string, any> = {};
+    Object.keys(PROVIDER_META).forEach((k) => {
+      initialStats[k] = {
+        latency: 0,
+        ttft: null,
+        inputTokens: 0,
+        cachedTokens: 0,
+        outputTokens: 0,
+        cost: 0,
+        status: "idle",
+        rawResponse: ""
+      };
+    });
+    return initialStats;
+  };
 
   // Dynamically build model templates based on user active version selection
   const MODEL_TEMPLATES = React.useMemo(() => {
     const templates: Record<string, ModelConfig> = {};
     Object.keys(PROVIDER_META).forEach((provider) => {
       const activeModelId = selectedModelIds[provider];
-      const option = PROVIDER_MODELS[provider].find((o) => o.id === activeModelId) || PROVIDER_MODELS[provider][0];
+      const option = providerModels[provider].find((o) => o.id === activeModelId) || providerModels[provider][0];
       const providerMeta = PROVIDER_META[provider];
       
       templates[provider] = {
@@ -402,7 +623,7 @@ export default function App() {
       };
     });
     return templates;
-  }, [selectedModelIds]);
+  }, [selectedModelIds, providerModels]);
 
   // Orchestrator Configuration Defaults
   const [selectedWorkers, setSelectedWorkers] = useState<string[]>(["openai", "mistral", "claude"]);
@@ -429,99 +650,281 @@ export default function App() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const inputWrapperRef = useRef<HTMLDivElement>(null);// helpseeker
+  const inputWrapperRef = useRef<HTMLDivElement>(null);
 
   // ==================== INITIALIZATION & PERSISTENCE ====================
 
-  useEffect(() => { // helpseeker
-    // Check if session storage is active
-    const savedLogin = sessionStorage.getItem("is_logged_in");
-    let isGuest = true;
-    if (savedLogin === "true") {
-      setUser({ name: "Mehul Arora", email: "mehul@example.com" });
-      isGuest = false;
-    }
-
-    const storage = isGuest ? sessionStorage : localStorage;
-
-    // Load selected models
-    const savedModels = storage.getItem("orchestrator_selected_models");
-    if (savedModels) {
+  useEffect(() => {
+    async function initAuthAndLoadData() {
+      // Load models from backend
       try {
-        setSelectedModelIds(JSON.parse(savedModels));
-      } catch (e) {
-        console.error("Failed to parse saved models", e);
-      }
-    }
-
-    // Load keys
-    const savedKeys = storage.getItem("orchestrator_keys");
-    if (savedKeys) {
-      try {
-        const parsed = JSON.parse(savedKeys);
-        setApiKeys(parsed);
-        // Pre-validate loaded keys
-        const initialValidations: Record<string, "empty" | "valid" | "invalid"> = {};
-        Object.keys(MODEL_TEMPLATES).forEach((k) => {
-          initialValidations[k] = checkKeyValidity(k, parsed[k] || "");
-        });
-        setKeyValidationStates(initialValidations);
-      } catch (e) {
-        console.error("Failed to parse saved keys", e);
-      }
-    }
-
-    // Load API simulator settings
-    const savedApiConfigs = storage.getItem("orchestrator_api_configs");
-    if (savedApiConfigs) {
-      try {
-        setApiErrorConfigs(JSON.parse(savedApiConfigs));
-      } catch (e) {
-        console.error("Failed to parse error configs", e);
-      }
-    }
-
-    // Load chats
-    const savedChats = storage.getItem("orchestrator_chats");
-    if (savedChats) {
-      try {
-        const parsedChats = JSON.parse(savedChats);
-        setChats(parsedChats);
-        if (parsedChats.length > 0) {
-          setActiveChatId(parsedChats[0].id);
+        const modelsRes = await fetch("/api/models");
+        if (modelsRes.ok) {
+          const list = await modelsRes.json();
+          const grouped: Record<string, ModelOption[]> = {
+            openai: [],
+            claude: [],
+            gemini: [],
+            deepseek: [],
+            mistral: []
+          };
+          list.forEach((m: any) => {
+            const fallbackOption = PROVIDER_MODELS[m.provider]?.find((o: any) => o.id === m.modelId) || {
+              strength: m.notes || "High performance model.",
+              rawResponseTemplate: `### Response from ${m.displayName}`
+            };
+            grouped[m.provider].push({
+              id: m.modelId,
+              name: m.displayName,
+              inputCostPer1K: m.inputPricePer1M / 1000,
+              outputCostPer1K: m.outputPricePer1M / 1000,
+              strength: fallbackOption.strength,
+              rawResponseTemplate: fallbackOption.rawResponseTemplate
+            });
+          });
+          setProviderModels(grouped);
         }
       } catch (e) {
-        console.error("Failed to parse saved chats", e);
+        console.error("Failed to fetch models from backend:", e);
       }
+
+      let activeUser = null;
+      try {
+        const res = await fetch("/api/auth/me", { cache: "no-store" });
+        if (res.ok) {
+          activeUser = await res.json();
+          setUser(activeUser);
+          if (activeUser) {
+            setUserUsage({
+              inputTokens: activeUser.totalInputTokens || 0,
+              outputTokens: activeUser.totalOutputTokens || 0,
+              costUsd: activeUser.totalCostUsd || "0"
+            });
+          }
+        } else {
+          setUser(null);
+        }
+      } catch (err) {
+        console.error("Auth check failed", err);
+        setUser(null);
+      }
+
+      const isGuest = !activeUser;
+
+      // Load settings that remain local
+      const storage = isGuest ? sessionStorage : localStorage;
+
+      const savedModels = storage.getItem("orchestrator_selected_models");
+      if (savedModels) {
+        try {
+          setSelectedModelIds(JSON.parse(savedModels));
+        } catch (e) {
+          console.error("Failed to parse saved models", e);
+        }
+      }
+
+      const savedApiConfigs = storage.getItem("orchestrator_api_configs");
+      if (savedApiConfigs) {
+        try {
+          setApiErrorConfigs(JSON.parse(savedApiConfigs));
+        } catch (e) {
+          console.error("Failed to parse error configs", e);
+        }
+      }
+
+      if (isGuest) {
+        // Load guest chats from sessionStorage
+        const savedChats = sessionStorage.getItem("orchestrator_chats");
+        if (savedChats) {
+          try {
+            const parsedChats = JSON.parse(savedChats);
+            setChats(parsedChats);
+            if (parsedChats.length > 0) {
+              setActiveChatId(parsedChats[0].id);
+            }
+          } catch (e) {
+            console.error("Failed to parse saved chats", e);
+          }
+        }
+        // Load guest keys
+        const savedKeys = sessionStorage.getItem("orchestrator_keys");
+        if (savedKeys) {
+          try {
+            const parsed = JSON.parse(savedKeys);
+            setApiKeys(parsed);
+            const initialValidations: Record<string, "empty" | "valid" | "invalid"> = {};
+            Object.keys(PROVIDER_META).forEach((k) => {
+              initialValidations[k] = checkKeyValidity(k, parsed[k] || "");
+            });
+            setKeyValidationStates(initialValidations);
+          } catch (e) {
+            console.error("Failed to parse saved keys", e);
+          }
+        }
+      } else {
+        // Logged-in user: Load chats from server
+        let dbChats: any[] = [];
+        try {
+          const chatsRes = await authFetch('/api/chats');
+          if (chatsRes.ok) {
+            dbChats = await chatsRes.json();
+            setChats(dbChats.map((c: any) => ({
+              id: c.id,
+              title: c.title,
+              messages: [],
+              modelStats: getCleanStats()
+            })));
+            if (dbChats.length > 0) {
+              setActiveChatId(dbChats[0].id);
+            }
+          }
+        } catch (err) {
+          console.error("Failed to load chats from server:", err);
+        }
+
+        // Load credentials metadata
+        try {
+          const credsRes = await authFetch('/api/credentials');
+          if (credsRes.ok) {
+            const data = await credsRes.json();
+            const keysCopy = { ...apiKeys };
+            const validationCopy = { ...keyValidationStates };
+            const meta: Record<string, { hasKey: boolean; last4: string }> = {};
+
+            data.forEach((c: any) => {
+              meta[c.provider] = { hasKey: c.hasKey, last4: c.last4 };
+              keysCopy[c.provider] = '••••••••••••••••';
+              validationCopy[c.provider] = 'valid';
+            });
+
+            setCredentialsMeta(meta);
+            setApiKeys(keysCopy);
+            setKeyValidationStates(validationCopy);
+          }
+        } catch (err) {
+          console.error("Failed to load credentials metadata:", err);
+        }
+
+        // Check if we can import guest chats
+        const guestChatsStr = sessionStorage.getItem("orchestrator_chats");
+        if (guestChatsStr && dbChats.length === 0) {
+          try {
+            const guestChats = JSON.parse(guestChatsStr);
+            if (guestChats.length > 0) {
+              setShowImportBanner(true);
+            }
+          } catch (e) {}
+        }
+      }
+
+      const savedCounter = storage.getItem("orchestrator_chat_counter");
+      if (savedCounter) {
+        setNextChatCounter(parseInt(savedCounter, 10));
+      }
+
+      setAuthLoading(false);
     }
 
-    const savedCounter = storage.getItem("orchestrator_chat_counter");
-    if (savedCounter) {
-      setNextChatCounter(parseInt(savedCounter, 10));
-    }
-  }, []);
+    initAuthAndLoadData();
+  }, []); // Run once on mount
 
   // Sync state helpers
-  const saveStateToStorage = (// helpseeker
+  const saveStateToStorage = (
     updatedChats: Chat[],
     updatedKeys: Record<string, string>,
     counter = nextChatCounter,
     updatedApiConfigs = apiErrorConfigs,
     updatedModels = selectedModelIds
   ) => {
-    const storage = user ? localStorage : sessionStorage;
-    storage.setItem("orchestrator_chats", JSON.stringify(updatedChats));
-    storage.setItem("orchestrator_keys", JSON.stringify(updatedKeys));
-    storage.setItem("orchestrator_chat_counter", counter.toString());
-    storage.setItem("orchestrator_api_configs", JSON.stringify(updatedApiConfigs));
-    storage.setItem("orchestrator_selected_models", JSON.stringify(updatedModels));
+    if (!user) {
+      sessionStorage.setItem("orchestrator_chats", JSON.stringify(updatedChats));
+      sessionStorage.setItem("orchestrator_keys", JSON.stringify(updatedKeys));
+      sessionStorage.setItem("orchestrator_chat_counter", counter.toString());
+      sessionStorage.setItem("orchestrator_api_configs", JSON.stringify(updatedApiConfigs));
+      sessionStorage.setItem("orchestrator_selected_models", JSON.stringify(updatedModels));
+    } else {
+      localStorage.setItem("orchestrator_chat_counter", counter.toString());
+      localStorage.setItem("orchestrator_api_configs", JSON.stringify(updatedApiConfigs));
+      localStorage.setItem("orchestrator_selected_models", JSON.stringify(updatedModels));
+    }
   };
 
+  // Listen for auth failures
+  useEffect(() => {
+    const handleAuthFailed = () => {
+      setUser(null);
+      setChats([]);
+      setActiveChatId(null);
+      setNextChatCounter(1);
+      setApiKeys({ openai: "", claude: "", gemini: "", deepseek: "", mistral: "" });
+      setKeyValidationStates({ openai: "empty", claude: "empty", gemini: "empty", deepseek: "empty", mistral: "empty" });
+      setApiErrorConfigs({ openai: "success", claude: "success", gemini: "success", deepseek: "success", mistral: "success" });
+      setSelectedModelIds({ openai: "gpt-5.4", claude: "claude-sonnet-5", gemini: "gemini-2.5-flash", deepseek: "deepseek-v4-flash", mistral: "mistral-large-latest" });
+    };
+    window.addEventListener('auth-failed', handleAuthFailed);
+    return () => window.removeEventListener('auth-failed', handleAuthFailed);
+  }, []);
+
+  // Lazy load chat details
+  useEffect(() => {
+    if (!activeChatId || !user) return;
+
+    const loadActiveChatDetails = async () => {
+      try {
+        const res = await authFetch(`/api/chats/${activeChatId}`);
+        if (res.ok) {
+          const chatDetails = await res.json();
+          setChats(prevChats => prevChats.map(c => {
+            if (c.id === activeChatId) {
+              const initialStats = getCleanStats();
+              const userMessages = chatDetails.messages.filter((m: any) => m.role === 'user');
+              if (userMessages.length > 0) {
+                const lastUser = userMessages[userMessages.length - 1];
+                if (lastUser.runs) {
+                  lastUser.runs.forEach((run: any) => {
+                    initialStats[run.provider] = {
+                      latency: run.latencyMs / 1000,
+                      inputTokens: run.inputTokens,
+                      outputTokens: run.outputTokens,
+                      cost: parseFloat(run.costUsd || '0'),
+                      status: run.status,
+                      rawResponse: run.rawResponse || run.errorMessage || ''
+                    };
+                  });
+                }
+              }
+
+              return {
+                ...c,
+                title: chatDetails.title,
+                messages: chatDetails.messages.map((m: any) => ({
+                  role: m.role,
+                  content: m.content
+                })),
+                modelStats: initialStats
+              };
+            }
+            return c;
+          }));
+
+          setChatUsage({
+            inputTokens: chatDetails.totalInputTokens || 0,
+            outputTokens: chatDetails.totalOutputTokens || 0,
+            costUsd: chatDetails.totalCostUsd || '0'
+          });
+        }
+      } catch (err) {
+        console.error('Failed to lazy load chat details:', err);
+      }
+    };
+
+    loadActiveChatDetails();
+  }, [activeChatId, user]);
+
   // Auto-scroll handler
-  useEffect(() => {// helpseeker
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chats, pipelineState, activeChatId]);
-
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -551,7 +954,7 @@ export default function App() {
         inputWrapperRef.current &&
         !inputWrapperRef.current.contains(e.target as Node)
       ) {
-        inputRef.current?.blur();// helpseeker
+        inputRef.current?.blur();
       }
     };
 
@@ -574,31 +977,26 @@ export default function App() {
     }
   };
 
-  // Google Login Mocks
+  // Real Google Login Redirect
   const handleGoogleLogin = () => {
-    const mockUser = { name: "Mehul Arora", email: "mehul@example.com" };
-    setUser(mockUser);
-    sessionStorage.setItem("is_logged_in", "true");
-    // Migrate session chats/keys to local storage so they persist permanently
-    localStorage.setItem("orchestrator_chats", JSON.stringify(chats));
-    localStorage.setItem("orchestrator_keys", JSON.stringify(apiKeys));
-    localStorage.setItem("orchestrator_chat_counter", nextChatCounter.toString());
-    localStorage.setItem("orchestrator_api_configs", JSON.stringify(apiErrorConfigs));
-    localStorage.setItem("orchestrator_selected_models", JSON.stringify(selectedModelIds));
+    window.location.href = "/api/auth/google";
   };
 
-  const handleSignOut = () => {
+  // Real Sign Out calling Route Handler and resetting state
+  const handleSignOut = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch (e) {
+      console.error("Logout request failed", e);
+    }
+
     setUser(null);
-    sessionStorage.removeItem("is_logged_in");
-    sessionStorage.removeItem("orchestrator_chats");
-    sessionStorage.removeItem("orchestrator_keys");
-    sessionStorage.removeItem("orchestrator_chat_counter");
-    sessionStorage.removeItem("orchestrator_api_configs");
-    sessionStorage.removeItem("orchestrator_selected_models");
+
     // Reset core states to defaults (no chats, empty keys)
     setChats([]);
     setActiveChatId(null);
     setNextChatCounter(1);
+    setCredentialsMeta({});
     setApiKeys({
       openai: "",
       claude: "",
@@ -621,61 +1019,176 @@ export default function App() {
       mistral: "success"
     });
     setSelectedModelIds({
-      openai: "gpt-4o",
-      claude: "claude-3-5-sonnet",
-      gemini: "gemini-1-5-pro",
-      deepseek: "deepseek-v3",
-      mistral: "mistral-large"
+      openai: "gpt-5.4",
+      claude: "claude-sonnet-5",
+      gemini: "gemini-2.5-flash",
+      deepseek: "deepseek-v4-flash",
+      mistral: "mistral-large-latest"
     });
+    sessionStorage.clear();
   };
 
-  // API Key Typing Validation
+  // API Key Typing Validation (Local State Only)
   const handleKeyChange = (provider: string, value: string) => {
     const updated = { ...apiKeys, [provider]: value };
     setApiKeys(updated);
 
-    // Prefix validation check
     const state = checkKeyValidity(provider, value);
     setKeyValidationStates((prev) => ({ ...prev, [provider]: state }));
   };
 
-  // ==================== SIDEBAR CHAT CREATION & EDITING ====================
+  const handleKeyBlur = async (provider: string, value: string) => {
+    if (value === '••••••••••••••••' || value.trim() === '') return;
+    const validity = checkKeyValidity(provider, value);
+    setKeyValidationStates(prev => ({ ...prev, [provider]: validity }));
+    if (validity !== 'valid') return;
 
-  const handleNewChat = () => {
-    const newId = `chat_${Date.now()}`;
-    const newChatTitle = `Chat ${nextChatCounter}`;
-    
-    // Set up base statistics representing clean state
-    const initialStats: Record<string, any> = {};
-    Object.keys(MODEL_TEMPLATES).forEach((k) => {
-      initialStats[k] = {
-        latency: 0,
-        inputTokens: 0,
-        outputTokens: 0,
-        cost: 0,
-        status: "idle",
-        rawResponse: ""
-      };
+    if (!user) {
+      const updated = { ...apiKeys, [provider]: value };
+      setApiKeys(updated);
+      saveStateToStorage(chats, updated);
+      return;
+    }
+
+    try {
+      const res = await authFetch('/api/credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, apiKey: value }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCredentialsMeta(prev => ({
+          ...prev,
+          [provider]: { hasKey: true, last4: data.last4 }
+        }));
+        setApiKeys(prev => ({ ...prev, [provider]: '••••••••••••••••' }));
+      }
+    } catch (e) {
+      console.error('Failed to save key:', e);
+    }
+  };
+
+  const handleKeyRevoke = async (provider: string) => {
+    setApiKeys(prev => ({ ...prev, [provider]: '' }));
+    setKeyValidationStates(prev => ({ ...prev, [provider]: 'empty' }));
+    setCredentialsMeta(prev => {
+      const copy = { ...prev };
+      delete copy[provider];
+      return copy;
     });
 
-    const newChat: Chat = {
-      id: newId,
-      title: newChatTitle,
-      messages: [],
-      modelStats: initialStats
-    };
+    if (!user) {
+      const updated = { ...apiKeys, [provider]: '' };
+      saveStateToStorage(chats, updated);
+      return;
+    }
 
-    const updatedChats = [newChat, ...chats];
-    const newCounter = nextChatCounter + 1;
-    
-    setChats(updatedChats);
-    setNextChatCounter(newCounter);
-    setActiveChatId(newId);
-    setPipelineState("idle");
-    setActiveErrorMessage(null);
+    try {
+      await authFetch(`/api/credentials/${provider}`, { method: 'DELETE' });
+    } catch (e) {
+      console.error('Failed to delete key:', e);
+    }
+  };
 
-    saveStateToStorage(updatedChats, apiKeys, newCounter);
-    setSidebarOpen(false); // Close sidebar drawer on mobile
+  const handleImportGuestChats = async () => {
+    const guestChatsStr = sessionStorage.getItem("orchestrator_chats");
+    if (!guestChatsStr) return;
+
+    try {
+      const guestChats = JSON.parse(guestChatsStr);
+      const res = await authFetch('/api/chats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          importChats: guestChats,
+          selectedWorkers,
+          selectedEvaluator,
+          autoTitleModel,
+        }),
+      });
+
+      if (res.ok) {
+        const dbChats = await res.json();
+        const mappedChats = dbChats.map((c: any) => ({
+          id: c.id,
+          title: c.title,
+          messages: [],
+          modelStats: getCleanStats()
+        }));
+
+        setChats(mappedChats);
+        if (mappedChats.length > 0) {
+          setActiveChatId(mappedChats[0].id);
+        }
+        setShowImportBanner(false);
+        sessionStorage.removeItem("orchestrator_chats");
+      }
+    } catch (e) {
+      console.error("Failed to import guest chats:", e);
+    }
+  };
+
+  // ==================== SIDEBAR CHAT CREATION & EDITING ====================
+
+  const handleNewChat = async () => {
+    const title = `Chat ${nextChatCounter}`;
+    const initialStats = getCleanStats();
+
+    if (!user) {
+      const newId = `chat_${Date.now()}`;
+      const newChat: Chat = {
+        id: newId,
+        title,
+        messages: [],
+        modelStats: initialStats
+      };
+
+      const updatedChats = [newChat, ...chats];
+      const newCounter = nextChatCounter + 1;
+      
+      setChats(updatedChats);
+      setNextChatCounter(newCounter);
+      setActiveChatId(newId);
+      setPipelineState("idle");
+      setActiveErrorMessage(null);
+
+      saveStateToStorage(updatedChats, apiKeys, newCounter);
+      setSidebarOpen(false);
+      return;
+    }
+
+    try {
+      const res = await authFetch('/api/chats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          selectedWorkers,
+          selectedEvaluator,
+          autoTitleModel: `${autoTitleModel}:${selectedModelIds[autoTitleModel]}`
+        })
+      });
+
+      if (res.ok) {
+        const newChatData = await res.json();
+        const newChat: Chat = {
+          id: newChatData.id,
+          title: newChatData.title,
+          messages: [],
+          modelStats: initialStats
+        };
+
+        setChats([newChat, ...chats]);
+        setNextChatCounter(nextChatCounter + 1);
+        setActiveChatId(newChat.id);
+        setPipelineState("idle");
+        setActiveErrorMessage(null);
+        setSidebarOpen(false);
+      }
+    } catch (e) {
+      console.error('Failed to create new chat on server:', e);
+    }
   };
 
   const handleStartEditingTitle = (chatId: string, currentTitle: string) => {
@@ -683,316 +1196,662 @@ export default function App() {
     setEditingChatTitle(currentTitle);
   };
 
-  const handleSaveChatTitle = (chatId: string) => {
+  const handleSaveChatTitle = async (chatId: string) => {
     if (!editingChatTitle.trim()) return;
     const updatedChats = chats.map((c) => (c.id === chatId ? { ...c, title: editingChatTitle } : c));
     setChats(updatedChats);
     setEditingChatId(null);
-    saveStateToStorage(updatedChats, apiKeys);
+
+    if (!user) {
+      saveStateToStorage(updatedChats, apiKeys);
+      return;
+    }
+
+    try {
+      await authFetch(`/api/chats/${chatId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: editingChatTitle })
+      });
+    } catch (e) {
+      console.error('Failed to rename chat:', e);
+    }
   };
 
-  const handleDeleteChat = (chatId: string, e: React.MouseEvent) => {
+  const handleDeleteChat = async (chatId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const updatedChats = chats.filter((c) => c.id !== chatId);
     setChats(updatedChats);
     if (activeChatId === chatId) {
       setActiveChatId(updatedChats.length > 0 ? updatedChats[0].id : null);
     }
-    saveStateToStorage(updatedChats, apiKeys);
+
+    if (!user) {
+      saveStateToStorage(updatedChats, apiKeys);
+      return;
+    }
+
+    try {
+      await authFetch(`/api/chats/${chatId}`, { method: 'DELETE' });
+    } catch (e) {
+      console.error('Failed to delete chat:', e);
+    }
   };
 
   // ==================== CORE ORCHESTRATION PIPELINE SIMULATOR ====================
 
-  const handleTriggerOrchestrate = (queryText: string) => {
-    if (pipelineState === "running") return;
-    if (!queryText.trim()) return;
-    setActiveErrorMessage(null);
-
-    // 2. RETRIEVE OR INITIALIZE CHAT
+  const handleGuestOrchestrate = async (queryText: string) => {
     let currentChatId = activeChatId;
     let updatedChats = [...chats];
 
     if (!currentChatId) {
-      // Create first chat automatically if none exists
       const newId = `chat_${Date.now()}`;
       const newChatTitle = `Chat ${nextChatCounter}`;
-      
-      const initialStats: Record<string, any> = {};
-      Object.keys(MODEL_TEMPLATES).forEach((k) => {
-        initialStats[k] = {
-          latency: 0,
-          inputTokens: 0,
-          outputTokens: 0,
-          cost: 0,
-          status: "idle",
-          rawResponse: ""
-        };
-      });
-
       const newChat: Chat = {
         id: newId,
         title: newChatTitle,
         messages: [],
-        modelStats: initialStats
+        modelStats: getCleanStats()
       };
-
       updatedChats = [newChat];
       currentChatId = newId;
       setNextChatCounter(nextChatCounter + 1);
       setActiveChatId(newId);
     }
 
-    // Add user message to active chat
-    const targetChatIndex = updatedChats.findIndex((c) => c.id === currentChatId);
-    if (targetChatIndex === -1) return;
+    const targetIndex = updatedChats.findIndex((c) => c.id === currentChatId);
+    if (targetIndex === -1) return;
 
-    const userMessage: Message = { role: "user", content: queryText };
-    updatedChats[targetChatIndex].messages = [...updatedChats[targetChatIndex].messages, userMessage];
-
-    // Reset input box
-    setSearchQuery("");
-    setChats(updatedChats);
-    setPipelineState("running");
-
-    // Initialize active stats for selected models on this query
-    const statsCopy = { ...updatedChats[targetChatIndex].modelStats };
-    selectedWorkers.forEach((w) => {
-      statsCopy[w] = {
-        ...statsCopy[w],
-        status: "running",
-        latency: 0.1,
-        inputTokens: 0,
-        outputTokens: 0,
-        cost: 0,
-        rawResponse: ""
+    const userMsg: Message = { role: "user", content: queryText };
+    const initialStats = getCleanStats();
+    
+    selectedWorkers.forEach(w => {
+      initialStats[w] = {
+        ...initialStats[w],
+        status: "running"
       };
     });
-    // Set non-selected models back to idle
-    Object.keys(MODEL_TEMPLATES).forEach((k) => {
-      if (!selectedWorkers.includes(k) && k !== selectedEvaluator) {
-        statsCopy[k] = {
-          ...statsCopy[k],
-          status: "idle",
-          latency: 0,
-          inputTokens: 0,
-          outputTokens: 0,
-          cost: 0,
-          rawResponse: ""
-        };
-      }
+
+    updatedChats[targetIndex].messages = [...updatedChats[targetIndex].messages, userMsg];
+    updatedChats[targetIndex].modelStats = initialStats;
+
+    // Optimistic title: set smart generated mock title
+    const isFirstMessage = updatedChats[targetIndex].messages.length === 1;
+    if (isFirstMessage && updatedChats[targetIndex].title.startsWith('Chat ')) {
+      updatedChats[targetIndex].title = generateMockTitle(queryText);
+    }
+
+    setChats(updatedChats);
+    setSearchQuery("");
+    setPipelineState("running");
+
+    const streamingBuffers: Record<string, string> = {};
+    selectedWorkers.forEach(w => {
+      streamingBuffers[w] = "";
     });
 
-    updatedChats[targetChatIndex].modelStats = statsCopy;
-    setChats(updatedChats);
+    try {
+      // Build history strictly scoped to this chat's messages
+      const history = updatedChats[targetIndex].messages
+        .slice(0, -1) // exclude current turn's user message
+        .map(m => ({ role: m.role, content: m.content }));
 
-    // 3. SIMULATED API DISPATCH WITH CONFIGURED ERROR OPTIONS
-    setTimeout(() => {
-      const updatedChatsDone = [...updatedChats];
-      const activeChat = updatedChatsDone[targetChatIndex];
-      const finalStats = { ...activeChat.modelStats };
-
-      const failedWorkers: { name: string; errorType: string }[] = [];
-      const keyErrorModels: string[] = [];
-
-      // Process Workers
-      selectedWorkers.forEach((w) => {
-        const config = MODEL_TEMPLATES[w];
-        
-        // Runtime key check
-        const key = apiKeys[w];
-        const checkState = checkKeyValidity(w, key);
-        const isKeyError = checkState === "empty" || checkState === "invalid" || apiErrorConfigs[w] === "key_error";
-        
-        const errorState = isKeyError ? "key_error" : apiErrorConfigs[w]; // 'success' | 'key_error' | 'rate_limit' | 'timeout'
-
-        if (errorState === "success") {
-          const inputT = Math.floor(Math.random() * 150) + 250;  // 250 - 400 tokens
-          const outputT = Math.floor(Math.random() * 300) + 400; // 400 - 700 tokens
-          const costVal = (inputT * (config.inputCostPer1K / 1000)) + (outputT * (config.outputCostPer1K / 1000));
-          const latencyVal = parseFloat((Math.random() * 0.8 + 0.6).toFixed(2));
-
-          finalStats[w] = {
-            status: "done",
-            latency: latencyVal,
-            inputTokens: inputT,
-            outputTokens: outputT,
-            cost: parseFloat(costVal.toFixed(6)),
-            rawResponse: config.rawResponseTemplate
-          };
-        } else if (errorState === "key_error") {
-          keyErrorModels.push(config.name);
-          failedWorkers.push({ name: config.name, errorType: "Key Error (Invalid Credentials)" });
-          finalStats[w] = {
-            status: "key_error",
-            latency: 0.14,
-            inputTokens: 0,
-            outputTokens: 0,
-            cost: 0,
-            rawResponse: `API Call Error: [Key Error] Authentication rejected for ${config.name}. Invalid key or unauthorized token.`
-          };
-        } else if (errorState === "rate_limit") {
-          failedWorkers.push({ name: config.name, errorType: "Rate Limit Exceeded (HTTP 429)" });
-          finalStats[w] = {
-            status: "rate_limit",
-            latency: 0.22,
-            inputTokens: 0,
-            outputTokens: 0,
-            cost: 0,
-            rawResponse: `API Call Error: [Rate Limit] HTTP 429 Too Many Requests. Rate limit metrics exceeded for ${config.name}.`
-          };
-        } else {
-          failedWorkers.push({ name: config.name, errorType: "Network Gateway Timeout" });
-          finalStats[w] = {
-            status: "timeout",
-            latency: 1.80,
-            inputTokens: 0,
-            outputTokens: 0,
-            cost: 0,
-            rawResponse: `API Call Error: [Timeout Error] Connection expired for ${config.name}. Endpoint failed to respond in 1800ms.`
-          };
+      // Send keys only for selected workers and selected evaluator
+      const filteredKeys: Record<string, string> = {};
+      const requiredProviders = [...selectedWorkers];
+      if (selectedEvaluator) requiredProviders.push(selectedEvaluator);
+      requiredProviders.forEach(provider => {
+        if (apiKeys[provider]) {
+          filteredKeys[provider] = apiKeys[provider];
         }
       });
 
-      // Process Evaluator
-      let evaluatorFailed = false;
-      let evaluatorErrorText = "";
+      const response = await fetch('/api/guest/message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: queryText,
+          history,
+          selectedWorkers,
+          selectedEvaluator,
+          modelSelections: selectedModelIds,
+          apiKeys: filteredKeys
+        })
+      });
 
-      if (selectedEvaluator) {
-        const evalConfig = MODEL_TEMPLATES[selectedEvaluator];
-        
-        // Runtime key check for Evaluator
-        const evalKey = apiKeys[selectedEvaluator];
-        const evalCheckState = checkKeyValidity(selectedEvaluator, evalKey);
-        const isEvalKeyError = evalCheckState === "empty" || evalCheckState === "invalid" || apiErrorConfigs[selectedEvaluator] === "key_error";
-        
-        const evalErrorState = isEvalKeyError ? "key_error" : apiErrorConfigs[selectedEvaluator];
+      if (!response.ok) {
+        const errData = await response.json();
+        setActiveErrorMessage(formatErrorMessage(errData.error));
+        setPipelineState("idle");
+        return;
+      }
 
-        if (evalErrorState === "success") {
-          const evalInputT = Math.floor(Math.random() * 100) + 150;
-          const evalOutputT = Math.floor(Math.random() * 200) + 300;
-          const evalCostVal = (evalInputT * (evalConfig.inputCostPer1K / 1000)) + (evalOutputT * (evalConfig.outputCostPer1K / 1000));
-          const evalLatencyVal = parseFloat((Math.random() * 0.5 + 0.4).toFixed(2));
-
-          finalStats[selectedEvaluator] = {
-            status: "done",
-            latency: evalLatencyVal,
-            inputTokens: finalStats[selectedEvaluator]?.inputTokens 
-              ? finalStats[selectedEvaluator].inputTokens + evalInputT 
-              : evalInputT,
-            outputTokens: finalStats[selectedEvaluator]?.outputTokens 
-              ? finalStats[selectedEvaluator].outputTokens + evalOutputT 
-              : evalOutputT,
-            cost: parseFloat(((finalStats[selectedEvaluator]?.cost || 0) + evalCostVal).toFixed(6)),
-            rawResponse: evalConfig.rawResponseTemplate
-          };
-        } else {
-          evaluatorFailed = true;
-          if (evalErrorState === "key_error") {
-            keyErrorModels.push(evalConfig.name);
-          }
-          evaluatorErrorText = evalErrorState === "key_error" 
-            ? `Key Error (Invalid Credentials) on ${evalConfig.name}` 
-            : evalErrorState === "rate_limit" 
-            ? `Rate Limit Exceeded (HTTP 429) on ${evalConfig.name}` 
-            : `Gateway Connection Timeout on ${evalConfig.name}`;
-
-          finalStats[selectedEvaluator] = {
-            status: evalErrorState,
-            latency: 0.18,
-            inputTokens: 0,
-            outputTokens: 0,
-            cost: 0,
-            rawResponse: `API Evaluator Error: [${evalErrorState.toUpperCase()}] Model evaluation failed.`
+      let tempAssistantMsg: Message = { role: "assistant", content: "" };
+      setChats(prevChats => prevChats.map(c => {
+        if (c.id === currentChatId) {
+          return {
+            ...c,
+            messages: [...c.messages, tempAssistantMsg]
           };
         }
-      }
+        return c;
+      }));
 
-      // Compile assistant synthesis report text
-      let synthesisContent = "";
+      await consumeOrchestratorStream(response, {
+        onWorkerStart: (data) => {
+          setChats(prevChats => prevChats.map(c => {
+            if (c.id === currentChatId) {
+              const stats = { ...c.modelStats };
+              stats[data.provider] = {
+                ...stats[data.provider],
+                status: "running"
+              };
+              return { ...c, modelStats: stats };
+            }
+            return c;
+          }));
+        },
+        onWorkerDelta: (data) => {
+          streamingBuffers[data.provider] += data.delta;
+          if (!selectedEvaluator) {
+            setChats(prevChats => prevChats.map(c => {
+              if (c.id === currentChatId) {
+                const msgs = [...c.messages];
+                if (msgs.length > 0) {
+                  msgs[msgs.length - 1] = { role: "assistant", content: streamingBuffers[data.provider] };
+                }
+                const stats = { ...c.modelStats };
+                stats[data.provider] = {
+                  ...stats[data.provider],
+                  rawResponse: streamingBuffers[data.provider]
+                };
+                return { ...c, messages: msgs, modelStats: stats };
+              }
+              return c;
+            }));
+          } else {
+            setChats(prevChats => prevChats.map(c => {
+              if (c.id === currentChatId) {
+                const stats = { ...c.modelStats };
+                stats[data.provider] = {
+                  ...stats[data.provider],
+                  rawResponse: streamingBuffers[data.provider]
+                };
+                return { ...c, modelStats: stats };
+              }
+              return c;
+            }));
+          }
+        },
+        onWorkerDone: (data) => {
+          setChats(prevChats => prevChats.map(c => {
+            if (c.id === currentChatId) {
+              const stats = { ...c.modelStats };
+              stats[data.provider] = {
+                latency: data.latencyMs / 1000,
+                ttft: data.ttftMs ? data.ttftMs / 1000 : null,
+                inputTokens: data.inputTokens,
+                cachedTokens: data.cachedInputTokens || 0,
+                outputTokens: data.outputTokens,
+                cost: parseFloat(calculateRunCost(data.provider, data.modelId, data.inputTokens, data.outputTokens, {
+                  cachedTokens: data.cachedInputTokens,
+                }).toFixed(6)),
+                status: "success",
+                rawResponse: streamingBuffers[data.provider]
+              };
+              return { ...c, modelStats: stats };
+            }
+            return c;
+          }));
+        },
+        onWorkerError: (data) => {
+          setChats(prevChats => prevChats.map(c => {
+            if (c.id === currentChatId) {
+              const stats = { ...c.modelStats };
+              stats[data.provider] = {
+                latency: 0.1,
+                inputTokens: 0,
+                outputTokens: 0,
+                cost: 0,
+                status: data.errorType as any,
+                rawResponse: `API Call Error: [${data.errorType}] ${data.message}`
+              };
+              return { ...c, modelStats: stats };
+            }
+            return c;
+          }));
+        },
+        onEvaluatorStart: (data) => {
+          setChats(prevChats => prevChats.map(c => {
+            if (c.id === currentChatId) {
+              const stats = { ...c.modelStats };
+              if (selectedEvaluator) {
+                stats[selectedEvaluator] = {
+                  ...stats[selectedEvaluator],
+                  status: "running"
+                };
+              }
+              return { ...c, modelStats: stats };
+            }
+            return c;
+          }));
+        },
+        onEvaluatorDelta: (data) => {
+          tempAssistantMsg.content += data.delta;
+          setChats(prevChats => prevChats.map(c => {
+            if (c.id === currentChatId) {
+              const msgs = [...c.messages];
+              if (msgs.length > 0) {
+                msgs[msgs.length - 1] = { role: "assistant", content: tempAssistantMsg.content };
+              }
+              return { ...c, messages: msgs };
+            }
+            return c;
+          }));
+        },
+        onEvaluatorDone: (data) => {
+          setChats(prevChats => prevChats.map(c => {
+            if (c.id === currentChatId) {
+              const stats = { ...c.modelStats };
+              if (selectedEvaluator) {
+                stats[selectedEvaluator] = {
+                  latency: data.latencyMs / 1000,
+                  ttft: data.ttftMs ? data.ttftMs / 1000 : null,
+                  inputTokens: data.inputTokens,
+                  cachedTokens: data.cachedInputTokens || 0,
+                  outputTokens: data.outputTokens,
+                  cost: parseFloat(calculateRunCost(selectedEvaluator, data.modelId, data.inputTokens, data.outputTokens, {
+                    cachedTokens: data.cachedInputTokens,
+                  }).toFixed(6)),
+                  status: "success",
+                  rawResponse: tempAssistantMsg.content
+                };
+              }
+              return { ...c, modelStats: stats };
+            }
+            return c;
+          }));
+        },
+        onFinalMessage: (data) => {
+          setChats(prevChats => {
+            const updated = prevChats.map(c => {
+              if (c.id === currentChatId) {
+                const msgs = [...c.messages];
+                if (msgs.length > 0) {
+                  msgs[msgs.length - 1] = { role: "assistant", content: data.content };
+                }
+                return { ...c, messages: msgs };
+              }
+              return c;
+            });
+            // Save state to sessionStorage for guest
+            saveStateToStorage(updated, apiKeys, nextChatCounter, apiErrorConfigs);
+            return updated;
+          });
+          setPipelineState("completed");
+        },
+        onUsageSummary: (data) => {
+          setChatUsage({
+            inputTokens: data.chat.inputTokens,
+            outputTokens: data.chat.outputTokens,
+            costUsd: data.chat.costUsd
+          });
+          setUserUsage({
+            inputTokens: data.user.inputTokens,
+            outputTokens: data.user.outputTokens,
+            costUsd: data.user.costUsd
+          });
+        },
+        onError: (message) => {
+          setActiveErrorMessage(message);
+          setPipelineState("idle");
+        }
+      });
+    } catch (e: any) {
+      setActiveErrorMessage(e.message || "Failed to execute orchestration pipeline.");
+      setPipelineState("idle");
+    }
+  };
 
-      if (!selectedEvaluator) {
-        const singleWorkerId = selectedWorkers[0];
-        const workerName = MODEL_TEMPLATES[singleWorkerId]?.name || "Worker";
-        const rawResp = finalStats[singleWorkerId]?.rawResponse || "No response received.";
-        synthesisContent = `### ${workerName} Response\n\n${rawResp}`;
-      } else if (evaluatorFailed) {
-        const evalConfig = MODEL_TEMPLATES[selectedEvaluator];
-        synthesisContent = `### Orchestrator Evaluation Failure
+  const handleTriggerOrchestrate = async (queryText: string) => {
+    if (pipelineState === "running") return;
+    if (!queryText.trim()) return;
+    setActiveErrorMessage(null);
 
-⚠️ **The synthesis step aborted because the Evaluator Model (${evalConfig.name}) encountered a critical API error:**
-> **${evaluatorErrorText}**
+    // Guest Mode fallback
+    if (!user) {
+      handleGuestOrchestrate(queryText);
+      return;
+    }
 
-Please resolve the credentials or connection configuration in the Settings panel to enable synthesized routing output. All worker outputs that resolved are available for inspection in the metrics inspector panel.`;
-      } else {
-        const healthyWorkers = selectedWorkers.filter(w => {
-          const key = apiKeys[w];
-          const checkState = checkKeyValidity(w, key);
-          const isKeyError = checkState === "empty" || checkState === "invalid" || apiErrorConfigs[w] === "key_error";
-          return !isKeyError && apiErrorConfigs[w] === "success";
+    let currentChatId = activeChatId;
+    let updatedChats = [...chats];
+
+    // Create a new chat if none exists
+    if (!currentChatId) {
+      try {
+        const title = `Chat ${nextChatCounter}`;
+        const config = {
+          title,
+          selectedWorkers,
+          selectedEvaluator,
+          autoTitleModel: `${autoTitleModel}:${selectedModelIds[autoTitleModel]}`
+        };
+        const res = await authFetch('/api/chats', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(config)
         });
-
-        const warningsSection = failedWorkers.length > 0
-          ? `> [!WARNING]
-> **Orchestrator degraded state active. The following workers failed runtime execution:**
-${failedWorkers.map(fw => `> * **${fw.name}**: ${fw.errorType}`).join("\n")}
-> 
-> *Remaining active models resolved correctly. Synthesis incorporates partial metadata.*
-
----`
-          : "";
-
-        const evalHeader = `### ${MODEL_TEMPLATES[selectedEvaluator]?.name} Evaluator Synthesized Response`;
-
-        synthesisContent = `${evalHeader}
-
-${warningsSection}
-
-This report consolidates response streams gathered ${healthyWorkers.length > 1 ? "concurrently " : ""}from: **${healthyWorkers.map(id => MODEL_TEMPLATES[id]?.name || id).join(", ")}** worker${healthyWorkers.length > 1 ? "s" : ""}.
-
-#### 1. Synthesis Insights
-Based on healthy data streams, MergeSort guarantees strict bounds for large-scale operations. QuickSort is recommended for in-memory stack arrays where stable alignment is not required.
-
-#### 2. Models Specializations Integrated
-${healthyWorkers.map(id => `* **${MODEL_TEMPLATES[id]?.name || id}**: ${MODEL_TEMPLATES[id]?.strength || ""}`).join("\n")}
-
-#### 3. Execution recommendation
-Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints. Choose MergeSort if you require stable sorting sequences across composite database indices.`;
+        if (res.ok) {
+          const newChatData = await res.json();
+          currentChatId = newChatData.id;
+          const newChat: Chat = {
+            id: currentChatId as string,
+            title: newChatData.title,
+            messages: [],
+            modelStats: getCleanStats()
+          };
+          updatedChats = [newChat, ...chats];
+          setChats(updatedChats);
+          setActiveChatId(currentChatId);
+          setNextChatCounter(nextChatCounter + 1);
+        } else {
+          setActiveErrorMessage("Failed to create conversation on database.");
+          return;
+        }
+      } catch (e) {
+        setActiveErrorMessage("Failed to create conversation on database.");
+        return;
       }
+    }
 
-      const assistantMessage: Message = {
-        role: "assistant",
-        content: synthesisContent
+    setSearchQuery("");
+    setPipelineState("running");
+
+    const targetIndex = updatedChats.findIndex(c => c.id === currentChatId);
+    if (targetIndex === -1) return;
+
+    const userMsg: Message = { role: "user", content: queryText };
+    const initialStats = getCleanStats();
+    
+    // Set selected workers to running status
+    selectedWorkers.forEach(w => {
+      initialStats[w] = {
+        ...initialStats[w],
+        status: "running"
       };
+    });
 
-      activeChat.messages = [...activeChat.messages, assistantMessage];
-      activeChat.modelStats = finalStats;
+    updatedChats[targetIndex].messages = [...updatedChats[targetIndex].messages, userMsg];
+    updatedChats[targetIndex].modelStats = initialStats;
 
-      if (keyErrorModels.length > 0) {
-        setActiveErrorMessage(`Key Error: Authentication failed for ${keyErrorModels.join(", ")}. Please configure valid keys starting with 'sk' ('AIza' for Gemini).`);
-      } else {
-        setActiveErrorMessage(null);
+    // Optimistic title update: set chat title to smart mock title immediately
+    const isFirstMessage = updatedChats[targetIndex].messages.length === 1;
+    if (isFirstMessage && updatedChats[targetIndex].title.startsWith('Chat ')) {
+      updatedChats[targetIndex].title = generateMockTitle(queryText);
+    }
+
+    setChats(updatedChats);
+
+    const streamingBuffers: Record<string, string> = {};
+    selectedWorkers.forEach(w => {
+      streamingBuffers[w] = "";
+    });
+
+    try {
+      const response = await authFetch(`/api/chats/${currentChatId}/message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: queryText,
+          selectedWorkers,
+          selectedEvaluator,
+          modelSelections: selectedModelIds
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        setActiveErrorMessage(formatErrorMessage(errData.error));
+        setPipelineState("idle");
+        return;
       }
 
-      setChats(updatedChatsDone);
-      setPipelineState("completed");
-      saveStateToStorage(updatedChatsDone, apiKeys, nextChatCounter, apiErrorConfigs);
-    }, 2200);
+      if (!response.body) {
+        setActiveErrorMessage("Empty response body returned by stream server.");
+        setPipelineState("idle");
+        return;
+      }
+
+      // Add temporary empty assistant message to write streamed content into
+      const tempAssistantMsg: Message = { role: "assistant", content: "" };
+      setChats(prevChats => prevChats.map(c => {
+        if (c.id === currentChatId) {
+          return {
+            ...c,
+            messages: [...c.messages, tempAssistantMsg]
+          };
+        }
+        return c;
+      }));
+
+      await consumeOrchestratorStream(response, {
+        onWorkerStart: (data) => {
+          setChats(prevChats => prevChats.map(c => {
+            if (c.id === currentChatId) {
+              const stats = { ...c.modelStats };
+              stats[data.provider] = {
+                ...stats[data.provider],
+                status: "running"
+              };
+              return { ...c, modelStats: stats };
+            }
+            return c;
+          }));
+        },
+        onWorkerDelta: (data) => {
+          streamingBuffers[data.provider] += data.delta;
+          if (!selectedEvaluator) {
+            setChats(prevChats => prevChats.map(c => {
+              if (c.id === currentChatId) {
+                const msgs = [...c.messages];
+                if (msgs.length > 0) {
+                  msgs[msgs.length - 1] = { role: "assistant", content: streamingBuffers[data.provider] };
+                }
+                const stats = { ...c.modelStats };
+                stats[data.provider] = {
+                  ...stats[data.provider],
+                  rawResponse: streamingBuffers[data.provider]
+                };
+                return { ...c, messages: msgs, modelStats: stats };
+              }
+              return c;
+            }));
+          } else {
+            setChats(prevChats => prevChats.map(c => {
+              if (c.id === currentChatId) {
+                const stats = { ...c.modelStats };
+                stats[data.provider] = {
+                  ...stats[data.provider],
+                  rawResponse: streamingBuffers[data.provider]
+                };
+                return { ...c, modelStats: stats };
+              }
+              return c;
+            }));
+          }
+        },
+        onWorkerDone: (data) => {
+          setChats(prevChats => prevChats.map(c => {
+            if (c.id === currentChatId) {
+              const stats = { ...c.modelStats };
+              stats[data.provider] = {
+                latency: data.latencyMs / 1000,
+                ttft: data.ttftMs ? data.ttftMs / 1000 : null,
+                inputTokens: data.inputTokens,
+                cachedTokens: data.cachedInputTokens || 0,
+                outputTokens: data.outputTokens,
+                cost: parseFloat(calculateRunCost(data.provider, data.modelId, data.inputTokens, data.outputTokens, {
+                  cachedTokens: data.cachedInputTokens,
+                }).toFixed(6)),
+                status: "success",
+                rawResponse: streamingBuffers[data.provider]
+              };
+              return { ...c, modelStats: stats };
+            }
+            return c;
+          }));
+        },
+        onWorkerError: (data) => {
+          setChats(prevChats => prevChats.map(c => {
+            if (c.id === currentChatId) {
+              const stats = { ...c.modelStats };
+              stats[data.provider] = {
+                latency: 0.1,
+                inputTokens: 0,
+                outputTokens: 0,
+                cost: 0,
+                status: data.errorType as any,
+                rawResponse: `API Call Error: [${data.errorType}] ${data.message}`
+              };
+              return { ...c, modelStats: stats };
+            }
+            return c;
+          }));
+        },
+        onEvaluatorStart: (data) => {
+          setChats(prevChats => prevChats.map(c => {
+            if (c.id === currentChatId) {
+              const stats = { ...c.modelStats };
+              if (selectedEvaluator) {
+                stats[selectedEvaluator] = {
+                  ...stats[selectedEvaluator],
+                  status: "running"
+                };
+              }
+              return { ...c, modelStats: stats };
+            }
+            return c;
+          }));
+        },
+        onEvaluatorDelta: (data) => {
+          tempAssistantMsg.content += data.delta;
+          setChats(prevChats => prevChats.map(c => {
+            if (c.id === currentChatId) {
+              const msgs = [...c.messages];
+              if (msgs.length > 0) {
+                msgs[msgs.length - 1] = { role: "assistant", content: tempAssistantMsg.content };
+              }
+              return { ...c, messages: msgs };
+            }
+            return c;
+          }));
+        },
+        onEvaluatorDone: (data) => {
+          setChats(prevChats => prevChats.map(c => {
+            if (c.id === currentChatId) {
+              const stats = { ...c.modelStats };
+              if (selectedEvaluator) {
+                stats[selectedEvaluator] = {
+                  latency: data.latencyMs / 1000,
+                  ttft: data.ttftMs ? data.ttftMs / 1000 : null,
+                  inputTokens: data.inputTokens,
+                  cachedTokens: data.cachedInputTokens || 0,
+                  outputTokens: data.outputTokens,
+                  cost: parseFloat(calculateRunCost(selectedEvaluator, data.modelId, data.inputTokens, data.outputTokens, {
+                    cachedTokens: data.cachedInputTokens,
+                  }).toFixed(6)),
+                  status: "success",
+                  rawResponse: tempAssistantMsg.content
+                };
+              }
+              return { ...c, modelStats: stats };
+            }
+            return c;
+          }));
+        },
+        onFinalMessage: (data) => {
+          setChats(prevChats => prevChats.map(c => {
+            if (c.id === currentChatId) {
+              const msgs = [...c.messages];
+              if (msgs.length > 0) {
+                msgs[msgs.length - 1] = { role: "assistant", content: data.content };
+              }
+              return { ...c, messages: msgs };
+            }
+            return c;
+          }));
+          setPipelineState("completed");
+        },
+        onUsageSummary: (data) => {
+          setChatUsage({
+            inputTokens: data.chat.inputTokens,
+            outputTokens: data.chat.outputTokens,
+            costUsd: data.chat.costUsd
+          });
+          setUserUsage({
+            inputTokens: data.user.inputTokens,
+            outputTokens: data.user.outputTokens,
+            costUsd: data.user.costUsd
+          });
+        },
+        onTitleUpdated: (data) => {
+          setChats(prevChats => prevChats.map(c => {
+            if (c.id === data.chatId) {
+              return { ...c, title: data.title };
+            }
+            return c;
+          }));
+        },
+        onError: (message) => {
+          setActiveErrorMessage(message);
+          setPipelineState("idle");
+        }
+      });
+    } catch (e: any) {
+      console.error("SSE stream reading failed:", e);
+      setActiveErrorMessage(e.message || "Failed to read data stream from backend.");
+      setPipelineState("idle");
+    }
   };
 
-  // ==================== CALCULATION & SELECTORS ====================
+  // Client side calculators for guest users
+  const calculateGuestChatUsage = (chat: Chat | null) => {
+    if (!chat) return { inputTokens: 0, outputTokens: 0, costUsd: "0.00000" };
+    let input = 0;
+    let output = 0;
+    let cost = 0;
+    Object.values(chat.modelStats).forEach(s => {
+      input += s.inputTokens || 0;
+      output += s.outputTokens || 0;
+      cost += s.cost || 0;
+    });
+    return {
+      inputTokens: input,
+      outputTokens: output,
+      costUsd: cost.toFixed(5)
+    };
+  };
 
-  // Active chat object
+  const calculateGuestSessionUsage = () => {
+    let input = 0;
+    let output = 0;
+    let cost = 0;
+    chats.forEach(chat => {
+      Object.values(chat.modelStats).forEach(s => {
+        input += s.inputTokens || 0;
+        output += s.outputTokens || 0;
+        cost += s.cost || 0;
+      });
+    });
+    return {
+      inputTokens: input,
+      outputTokens: output,
+      costUsd: cost.toFixed(5)
+    };
+  };
+
   const activeChat = chats.find((c) => c.id === activeChatId) || null;
-
-  // Calculate Cumulative Total Cost for all chats in history
-  const calculateTotalUserCost = () => {
-    return chats.reduce((total, chat) => {
-      const statsSum = Object.values(chat.modelStats).reduce((sum, stats) => sum + (stats.cost || 0), 0);
-      return total + statsSum;
-    }, 0);
-  };
-
-  const totalUserCost = calculateTotalUserCost();
 
   // Filtered right card list (Only showing selected workers & evaluator)
   const activeRightSideCardIds = Array.from(new Set([...selectedWorkers, ...(selectedEvaluator ? [selectedEvaluator] : [])]));
@@ -1028,7 +1887,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
       <aside 
         className={`fixed inset-y-0 left-0 z-40 flex flex-col border-r border-border-subtle bg-bg-surface transition-transform duration-300 transform w-72 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } lg:static ${sidebarOpen ? "lg:w-72 lg:translate-x-0" : "lg:w-0 lg:-translate-x-full"} shrink-0 overflow-hidden`}
+        } lg:static lg:translate-x-0 lg:w-72 shrink-0 overflow-hidden`}
       >
         {/* Brand & Auth Area */}
         <div className="flex flex-col border-b border-border-subtle bg-bg-surface p-4 gap-4">
@@ -1039,38 +1898,60 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                 Ω
               </div>
               <div className="flex flex-col">
-                <span className="font-bold text-sm tracking-tight text-text-primary leading-none">ApexRouter</span>
+                <span className="font-bold text-sm tracking-tight text-text-primary leading-none">Arbiter</span>
                 <span className="text-[10px] text-text-tertiary font-mono mt-0.5">Orchestrator v1.2</span>
               </div>
             </div>
 
-            {/* Mobile Close Button */}
-            <button 
-              onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-1 text-text-tertiary hover:text-text-primary"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-              </svg>
-            </button>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/docs"
+                className="text-[10px] font-bold text-accent-primary hover:text-accent-primary-hover border border-accent-primary/20 hover:border-accent-primary/50 px-2 py-1 rounded bg-accent-primary/5 transition duration-150"
+              >
+                Docs
+              </Link>
+
+              {/* Mobile Close Button */}
+              <button 
+                onClick={() => setSidebarOpen(false)}
+                className="lg:hidden p-1 text-text-tertiary hover:text-text-primary"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           {/* User Sign-In Block */}
           <div className="pt-1.5">
-            {user ? (
+            {authLoading ? (
+              <div className="flex items-center justify-center p-3 rounded-lg border border-border-subtle bg-bg-surface-raised animate-pulse h-12">
+                <span className="text-[10px] text-text-tertiary">Loading session...</span>
+              </div>
+            ) : user ? (
               <div className="flex items-center justify-between bg-bg-surface-raised border border-border-subtle p-3 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <div className="h-7 w-7 rounded-full bg-accent-primary/20 border border-accent-primary/40 flex items-center justify-center text-xs font-bold text-accent-primary">
-                    MA
-                  </div>
-                  <div className="text-left">
-                    <p className="text-xs font-bold text-text-primary">{user.name}</p>
+                <div className="flex items-center gap-2 overflow-hidden">
+                  {user.avatarUrl ? (
+                    <img 
+                      src={user.avatarUrl} 
+                      alt={user.name || "User"} 
+                      className="h-7 w-7 rounded-full object-cover shrink-0 border border-border-subtle" 
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="h-7 w-7 rounded-full bg-accent-primary/20 border border-accent-primary/40 flex items-center justify-center text-xs font-bold text-accent-primary shrink-0">
+                      {user.name ? user.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : 'U'}
+                    </div>
+                  )}
+                  <div className="text-left overflow-hidden">
+                    <p className="text-xs font-bold text-text-primary truncate">{user.name || 'User'}</p>
                     <p className="text-[9px] text-text-tertiary font-mono truncate max-w-[120px]">{user.email}</p>
                   </div>
                 </div>
                 <button 
                   onClick={handleSignOut}
-                  className="text-[10px] text-text-tertiary hover:text-status-error font-semibold px-2 py-1 rounded-md hover:bg-status-error-bg transition"
+                  className="text-[10px] text-text-tertiary hover:text-status-error font-semibold px-2 py-1 rounded-md hover:bg-status-error-bg transition shrink-0"
                 >
                   Logout
                 </button>
@@ -1234,7 +2115,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
             {/* Sidebar toggle for mobile */}
             <button 
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="text-text-secondary hover:text-text-primary p-1 rounded-md hover:bg-bg-surface-raised transition"
+              className="text-text-secondary hover:text-text-primary p-1 rounded-md hover:bg-bg-surface-raised transition lg:hidden"
               title="Toggle chat sidebar"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-5.5 h-5.5">
@@ -1250,6 +2131,23 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Usage Metrics Badge */}
+            <div className="flex items-center gap-3 sm:gap-4 bg-bg-surface-raised/80 border border-border-subtle px-3 py-1 rounded-md text-[10px] font-mono text-text-secondary select-none">
+              <div className="flex flex-col text-left">
+                <span className="text-[7.5px] text-text-tertiary uppercase font-bold tracking-wider">This Chat</span>
+                <span className="font-bold text-status-success mt-0.5">
+                  ${user ? parseFloat(chatUsage.costUsd).toFixed(5) : calculateGuestChatUsage(activeChat).costUsd} ({user ? chatUsage.inputTokens + chatUsage.outputTokens : calculateGuestChatUsage(activeChat).inputTokens + calculateGuestChatUsage(activeChat).outputTokens} t)
+                </span>
+              </div>
+              <div className="h-5 w-px bg-border-subtle" />
+              <div className="flex flex-col text-left">
+                <span className="text-[7.5px] text-text-tertiary uppercase font-bold tracking-wider">{user ? "All-Time" : "This Session"}</span>
+                <span className="font-bold text-accent-primary mt-0.5">
+                  ${user ? parseFloat(userUsage.costUsd).toFixed(5) : calculateGuestSessionUsage().costUsd} ({user ? userUsage.inputTokens + userUsage.outputTokens : calculateGuestSessionUsage().inputTokens + calculateGuestSessionUsage().outputTokens} t)
+                </span>
+              </div>
+            </div>
+
             {/* API Settings Button */}
             <button
               onClick={() => setKeysModalOpen(true)}
@@ -1261,7 +2159,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
               <span className="hidden sm:inline">Settings</span>
             </button>
 
-            {/* Metrics Toggle for Mobile */}
+            {/* Metrics Toggle */}
             <button 
               onClick={() => setRightPanelOpen(!rightPanelOpen)}
               className="text-text-secondary hover:text-text-primary p-2 rounded-md hover:bg-bg-surface-raised transition flex items-center gap-2 border border-border-subtle bg-bg-surface-raised animate-pulse"
@@ -1285,116 +2183,68 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
             <button
               onClick={() => setActiveErrorMessage(null)}
               className="ml-auto p-1 text-status-error hover:bg-status-error-bg/60 rounded-md transition duration-150"
-              title="Dismiss error"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-              </svg>
+              Dismiss
             </button>
           </div>
         )}
 
-        {/* Chat Area with Dummy Historical Database Message Load Trigger */}
-        <div 
-          ref={chatContainerRef}
-          className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 scrollbar-thin"
-        >
+        {/* Guest Session Import Banner */}
+        {showImportBanner && (
+          <div className="bg-accent-primary/10 border-b border-accent-primary/30 px-6 py-3 text-xs text-text-primary flex items-center justify-between gap-3 select-none">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold">Import your guest session?</span>
+              <span className="text-text-tertiary">We found active guest conversations in this browser.</span>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleImportGuestChats}
+                className="px-3 py-1 bg-accent-primary text-black font-bold rounded hover:bg-accent-primary/95 transition text-[11px] leading-tight"
+              >
+                Import Account Chats
+              </button>
+              <button
+                onClick={() => {
+                  setShowImportBanner(false);
+                  sessionStorage.removeItem("orchestrator_chats");
+                }}
+                className="px-3 py-1 border border-border-subtle hover:bg-bg-surface-raised transition text-[11px] rounded leading-tight"
+              >
+                Discard
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ==================== CENTER MESSAGES CONTAINER ==================== */}
+        <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 sm:p-6 scrollbar-thin select-text">
+          
           {!activeChat || activeChat.messages.length === 0 ? (
-            /* ==================== IDLE STATE: LANDING LAYOUT ==================== */
-            <div className="max-w-xl mx-auto py-12 space-y-8 text-center">
+            /* ==================== EMPTY STATE / COLD SCREEN ==================== */
+            <div className="max-w-xl mx-auto text-center py-20 space-y-8 select-none">
               
-              {/* Landing Header */}
-              <div className="space-y-4">
-                <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-text-primary leading-tight">
-                  Consolidated AI Synthesizer<br />
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-accent-primary to-accent-secondary">
-                    Dual Evaluation Gateway
-                  </span>
-                </h1>
-                <p className="text-xs sm:text-sm text-text-secondary max-w-md mx-auto leading-relaxed">
-                  {selectedEvaluator ? (
-                    `Query up to 5 worker models concurrently, synthesize responses through ${MODEL_TEMPLATES[selectedEvaluator]?.name || "an evaluator model"}, and persist historical metrics in Drizzle Postgres.`
-                  ) : (
-                    `Query a single worker model directly for unchecked response stream, and persist historical metrics in Drizzle Postgres.`
-                  )}
+              <div className="space-y-3">
+                <h2 className="text-2xl font-black text-text-primary tracking-tight">Arbiter Multi-Agent Platform</h2>
+                <p className="text-xs text-text-tertiary max-w-sm mx-auto leading-relaxed">
+                  Submit queries to multiple language models concurrently. View performance, evaluate options, and persist logs.
                 </p>
               </div>
 
-              {/* Status information tags */}
-              <div className="bg-bg-surface border border-border-subtle rounded-lg p-5 text-left max-w-md mx-auto space-y-3 shadow-lg">
-                <div className="flex items-center justify-between border-b border-border-subtle pb-2">
-                  <p className="text-xs font-bold text-accent-secondary uppercase tracking-wider">Pipeline Configurations</p>
-                  <button 
-                    onClick={() => {
-                      // Load dummy historical DB messages to demonstrate persistence
-                      const initialStats: Record<string, any> = {};
-                      Object.keys(MODEL_TEMPLATES).forEach((k) => {
-                        initialStats[k] = {
-                          latency: 1.25,
-                          inputTokens: 320,
-                          outputTokens: 490,
-                          cost: 0.0031,
-                          status: "done",
-                          rawResponse: MODEL_TEMPLATES[k].rawResponseTemplate
-                        };
-                      });
-                      
-                      const demoChat: Chat = {
-                        id: `chat_demo_${Date.now()}`,
-                        title: "Demo DB: Sorting Benchmarks",
-                        messages: [
-                          { role: "user", content: "Compare sorting strategies and write an optimized quicksort in Python." },
-                          { 
-                            role: "assistant", 
-                            content: `### Claude 3.5 Sonnet Synthesized Response\nConsolidated analysis from GPT-4o, Claude, and Mistral:\n\n* **QuickSort**: Best for cache efficiency. $O(n \\log n)$ average complexity.\n* **MergeSort**: Stable, guaranteed performance limits.\n\n\`\`\`python\ndef quicksort(arr):\n    if len(arr) <= 1: return arr\n    pivot = arr[len(arr)//2]\n    return quicksort([x for x in arr if x < pivot]) + [x for x in arr if x == pivot] + quicksort([x for x in arr if x > pivot])\n\`\`\``
-                          }
-                        ],
-                        modelStats: initialStats
-                      };
-
-                      const newChats = [demoChat, ...chats];
-                      setChats(newChats);
-                      setActiveChatId(demoChat.id);
-                      setPipelineState("completed");
-                      saveStateToStorage(newChats, apiKeys);
-                    }}
-                    className="text-[9px] bg-accent-primary hover:bg-accent-primary-hover text-black font-mono py-1 px-3 rounded-md transition"
-                  >
-                    Load Historical DB Chats
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-[11px] font-mono text-text-secondary">
-                  <div>Max Workers: <span className="text-text-primary">{maxWorkers} Limit</span></div>
-                  <div>{selectedEvaluator ? "Active Workers" : "Active Worker"}: <span className="text-text-primary">{selectedWorkers.map(id => MODEL_TEMPLATES[id]?.name).join(", ")}</span></div>
-                  <div className="col-span-2">Evaluator Model: <span className="text-accent-secondary font-bold">{selectedEvaluator ? (MODEL_TEMPLATES[selectedEvaluator]?.name || selectedEvaluator) : "None (Direct Output)"}</span></div>
-                  <div className="col-span-2">Auto-Title Model: <span className="text-text-primary">{currentAutoTitleModelName}</span></div>
-                </div>
-              </div>
-
-              {/* Clickable Quick-Start Prompts */}
-              <div className="space-y-3 max-w-lg mx-auto text-left">
-                <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider px-1">Selected Sample Prompts</p>
-                
-                <button
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
+                <button 
                   onClick={() => handleTriggerOrchestrate("Compare the time complexity of QuickSort vs MergeSort with code examples.")}
-                  className="w-full text-left p-4 rounded-lg border border-border-subtle bg-bg-surface hover:bg-bg-surface-raised hover:border-border-strong transition duration-200 group"
+                  className="p-4 rounded-lg border border-border-subtle bg-bg-surface hover:border-border-strong hover:bg-bg-surface-raised transition text-xs space-y-1"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs sm:text-sm text-text-secondary font-medium group-hover:text-text-primary">Compare the time complexity of QuickSort vs MergeSort with code examples.</span>
-                    <span className="text-xs text-accent-primary group-hover:translate-x-1 transition duration-200 font-bold">→</span>
-                  </div>
-                  <p className="text-[10px] text-text-tertiary mt-1">Runs concurrent benchmark trace inside the workspace container.</p>
+                  <p className="font-bold text-text-primary">Compare Sorting Algorithms</p>
+                  <p className="text-[10px] text-text-tertiary mt-1">Queries Mistral, OpenAI and Claude, then runs synthesis reports.</p>
                 </button>
 
-                <button
+                <button 
                   onClick={() => handleTriggerOrchestrate("Write a Next.js API route that encrypts BYOK credentials with AES-256.")}
-                  className="w-full text-left p-4 rounded-lg border border-border-subtle bg-bg-surface hover:bg-bg-surface-raised hover:border-border-strong transition duration-200 group"
+                  className="p-4 rounded-lg border border-border-subtle bg-bg-surface hover:border-border-strong hover:bg-bg-surface-raised transition text-xs space-y-1"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs sm:text-sm text-text-secondary font-medium group-hover:text-text-primary">How do I securely encrypt credentials in Next.js using AES-256?</span>
-                    <span className="text-xs text-accent-primary group-hover:translate-x-1 transition duration-200 font-bold">→</span>
-                  </div>
-                  <p className="text-[10px] text-text-tertiary mt-1">Queries Mistral, OpenAI and Claude, then runs synthesis reports.</p>
+                  <p className="font-bold text-text-primary">Next.js API Cryptography</p>
+                  <p className="text-[10px] text-text-tertiary mt-1">Evaluates cryptographical options across providers concurrently.</p>
                 </button>
               </div>
 
@@ -1423,43 +2273,22 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                       {isUser ? "U" : "Ω"}
                     </div>
 
-                    {/* Message Body */}
-                    <div className="space-y-1.5 flex-1 min-w-0">
-                      <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-wider">
-                        {isUser ? "User Query" : selectedEvaluator ? `${MODEL_TEMPLATES[selectedEvaluator]?.name || selectedEvaluator} Evaluator Synthesis` : `${MODEL_TEMPLATES[selectedWorkers[0]]?.name || "Worker"} Direct Response`}
+                    <div className="flex-1 overflow-hidden text-left space-y-2">
+                      <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider">
+                        {isUser ? "User Query" : "Arbiter Consolidated Response"}
                       </p>
-                      
-                      <div className="prose prose-invert max-w-none text-text-primary text-xs sm:text-sm whitespace-pre-wrap leading-relaxed">
-                        {/* Custom markdown parsing for code blocks block formatting */}
-                        {msg.content.split("```").map((chunk, idx) => {
-                          const isCode = idx % 2 === 1;
-                          if (isCode) {
-                            const lines = chunk.split("\n");
-                            const lang = lines[0] || "python";
-                            const codeContent = lines.slice(1).join("\n");
-                            return (
-                              <div key={idx} className="my-3 rounded-sm overflow-hidden border border-border-subtle bg-bg-base/80">
-                                <div className="flex items-center justify-between px-3 py-1.5 bg-bg-surface-raised/60 text-[10px] text-text-tertiary font-mono border-b border-border-subtle">
-                                  <span>{lang} code block</span>
-                                  <button 
-                                    onClick={() => {
-                                      navigator.clipboard.writeText(codeContent.trim());
-                                      alert("Code copied to clipboard!");
-                                    }}
-                                    className="hover:text-text-primary flex items-center gap-1"
-                                  >
-                                    Copy
-                                  </button>
-                                </div>
-                                <pre className="p-4 overflow-x-auto text-[11px] font-mono leading-relaxed text-text-secondary">
-                                  <code>{codeContent.trim()}</code>
-                                </pre>
-                              </div>
-                            );
-                          }
-                          return <span key={idx}>{chunk}</span>;
-                        })}
-                      </div>
+                      {isUser ? (
+                        <div className="text-xs sm:text-sm text-text-primary whitespace-pre-wrap leading-relaxed">
+                          {msg.content}
+                        </div>
+                      ) : (
+                        <div 
+                          className="text-xs sm:text-sm text-text-primary leading-relaxed prose-markdown"
+                          dangerouslySetInnerHTML={{ 
+                            __html: marked.parse(msg.content) as string
+                          }}
+                        />
+                      )}
                     </div>
                   </div>
                 );
@@ -1467,7 +2296,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
 
               {/* Running Loader state inside message container */}
               {pipelineState === "running" && (
-                <div className="flex gap-4 p-5 rounded-lg border border-border-subtle bg-bg-surface-raised/20 animate-pulse">
+                <div className="flex gap-4 p-5 rounded-lg border border-border-subtle bg-bg-surface-raised/20 animate-pulse text-left">
                   <div className="h-8 w-8 rounded-md bg-accent-primary/10 border border-accent-primary/20 flex items-center justify-center shrink-0">
                     <svg className="animate-spin h-4 w-4 text-accent-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -1518,7 +2347,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
               <input
                 ref={inputRef}
                 type="text"
-                placeholder="Ask ApexRouter (e.g. Compare QuickSort vs MergeSort)..."
+                placeholder="Ask Arbiter (e.g. Compare QuickSort vs MergeSort)..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => {
@@ -1530,7 +2359,6 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                     });
                   }
                 }}
-                
                 className="flex-1 bg-transparent text-xs sm:text-sm text-text-primary placeholder-text-tertiary outline-none disabled:text-text-tertiary"
               />
  
@@ -1546,14 +2374,15 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
             <p className="text-center text-[10px] text-text-tertiary mt-3 font-mono">
               AES-256 encryption active • Drizzle ORM PostgreSQL persistence
             </p>
+
           </div>
         </footer>
 
       </main>
 
-      {/* ==================== RIGHT INSPECTOR PANEL (ONLY SELECTED WORKERS & EVALUATOR) ==================== */}
+      {/* ==================== RIGHT INSPECTOR SIDEBAR ==================== */}
       {rightPanelOpen && (
-        <aside className="fixed inset-y-0 right-0 z-40 lg:static w-80 border-l border-border-subtle bg-bg-surface flex flex-col shrink-0 overflow-hidden shadow-2xl lg:shadow-none">
+        <aside className="w-80 border-l border-border-subtle bg-bg-surface flex flex-col shrink-0 overflow-hidden select-none">
           
           {/* Header */}
           <div className="flex h-16 items-center justify-between px-4 border-b border-border-subtle bg-bg-surface-raised">
@@ -1571,22 +2400,6 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
             </button>
           </div>
 
-          {/* User Cumulative Total Cost & Active Chat cost */}
-          <div className="p-4 border-b border-border-subtle bg-bg-base/30 grid grid-cols-2 gap-2 text-center">
-            <div className="p-2 rounded-md bg-bg-surface-raised/60 border border-border-subtle">
-              <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-wider">Active Chat Cost</p>
-              <p className="text-sm font-bold text-status-success font-mono mt-0.5">
-                {activeChat ? `$${Object.values(activeChat.modelStats).reduce((sum, s) => sum + s.cost, 0).toFixed(5)}` : "$0.00000"}
-              </p>
-            </div>
-            <div className="p-2 rounded-md bg-bg-surface-raised/60 border border-border-subtle">
-              <p className="text-[9px] font-bold text-text-tertiary uppercase tracking-wider">Total User Cost</p>
-              <p className="text-sm font-bold text-accent-primary font-mono mt-0.5">
-                {totalUserCost ? `$${totalUserCost.toFixed(5)}` : "$0.00000"}
-              </p>
-            </div>
-          </div>
-
           {/* List of Models - FILTERED: Showing only the selected workers and evaluator */}
           <div className="flex-1 overflow-y-auto p-3 space-y-4 scrollbar-thin">
             
@@ -1598,7 +2411,6 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
               const isEvaluator = selectedEvaluator === modelId;
               const isSelected = selectedInspectorModel === modelId;
 
-              // Check model status (especially configured API simulation failure flags)
               const currentStatus = stats ? stats.status : "idle";
 
               return (
@@ -1639,7 +2451,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                         Running
                       </span>
                     )}
-                    {currentStatus === "done" && (
+                    {currentStatus === "success" && (
                       <span className="text-[9px] px-1.5 py-0.5 rounded-sm bg-status-success-bg text-status-success font-bold uppercase font-mono">
                         Success
                       </span>
@@ -1659,6 +2471,11 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                         Timeout
                       </span>
                     )}
+                    {currentStatus === "error" && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-sm bg-status-error-bg text-status-error font-bold uppercase font-mono">
+                        Failed (500)
+                      </span>
+                    )}
                     {currentStatus === "idle" && (
                       <span className="text-[9px] px-1.5 py-0.5 rounded-sm bg-status-idle-bg text-text-tertiary font-bold uppercase font-mono">
                         Idle
@@ -1669,9 +2486,10 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                   {/* Token usage per chat & cost subgrid */}
                   <div className="grid grid-cols-3 gap-1 py-1.5 border-t border-b border-border-subtle my-2 text-[10px] font-mono text-text-secondary">
                     <div>
-                      <p className="text-[8px] text-text-tertiary font-sans uppercase">Latency</p>
+                      <p className="text-[8px] text-text-tertiary font-sans uppercase">Latency / TTFT</p>
                       <p className="font-bold text-text-primary">
                         {stats && stats.latency > 0 ? `${stats.latency}s` : "0.00s"}
+                        {stats && stats.ttft ? ` / ${stats.ttft.toFixed(2)}s` : ""}
                       </p>
                     </div>
                     <div>
@@ -1684,6 +2502,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                       {stats && stats.inputTokens > 0 && (
                         <p className="text-[8px] text-text-tertiary">
                           ({stats.inputTokens}/{stats.outputTokens})
+                          {stats.cachedTokens ? ` [${stats.cachedTokens} cached]` : ""}
                         </p>
                       )}
                     </div>
@@ -1724,7 +2543,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
 
             <div className="flex-1 p-3 overflow-y-auto font-mono text-[10px] text-text-secondary leading-normal scrollbar-thin bg-bg-base/40 select-all">
               {activeChat && activeChat.modelStats[selectedInspectorModel]?.rawResponse ? (
-                <pre className="whitespace-pre-wrap">{activeChat.modelStats[selectedInspectorModel].rawResponse}</pre>
+                <pre className="whitespace-pre-wrap text-left">{activeChat.modelStats[selectedInspectorModel].rawResponse}</pre>
               ) : (
                 <span className="italic text-text-tertiary block text-center py-4">No data. Run search query to inspect raw model payloads.</span>
               )}
@@ -1737,7 +2556,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
 
       {/* ==================== BYOK CREDENTIALS & SETTINGS MODAL ==================== */}
       {keysModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 select-none">
           <div className="w-full max-w-lg rounded-lg border border-border-subtle bg-bg-surface-raised p-5 sm:p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto scrollbar-thin">
             
             {/* Header */}
@@ -1746,7 +2565,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                 <div className="p-1.5 rounded-md bg-accent-primary/10 text-accent-primary">
                   ⚙️
                 </div>
-                <h3 className="text-base font-bold text-text-primary">ApexRouter Configurations</h3>
+                <h3 className="text-base font-bold text-text-primary">Arbiter Configurations</h3>
               </div>
               <button 
                 onClick={() => setKeysModalOpen(false)}
@@ -1773,13 +2592,13 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                     <div key={id} className="space-y-1">
                       <div className="flex justify-between items-center">
                         <label className="text-[11px] font-semibold text-text-secondary">{m.name} Key</label>
-                        {state === "valid" && (
+                        {user && credentialsMeta[id]?.hasKey ? (
+                          <span className="text-[9px] font-mono text-status-success font-bold">✓ Configured (Ends in {credentialsMeta[id].last4})</span>
+                        ) : state === "valid" ? (
                           <span className="text-[9px] font-mono text-status-success font-bold">✓ Valid Prefix</span>
-                        )}
-                        {state === "invalid" && (
+                        ) : state === "invalid" ? (
                           <span className="text-[9px] font-mono text-status-error font-bold">✗ Invalid Prefix</span>
-                        )}
-                        {state === "empty" && (
+                        ) : (
                           <span className="text-[9px] font-mono text-text-tertiary">Empty</span>
                         )}
                       </div>
@@ -1791,13 +2610,33 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                           value={apiKeys[id]}
                           placeholder={m.placeholderKey}
                           onChange={(e) => handleKeyChange(id, e.target.value)}
+                          onBlur={(e) => handleKeyBlur(id, e.target.value)}
                           className="w-full bg-transparent text-xs font-mono text-text-primary outline-none"
                         />
+                        {apiKeys[id] && (
+                          <button
+                            onClick={() => handleKeyRevoke(id)}
+                            title="Clear Key"
+                            className="text-text-tertiary hover:text-status-error ml-2 text-[10px] font-semibold transition"
+                          >
+                            Clear
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
                 })}
               </div>
+              {user && (
+                <p className="text-[9px] text-text-tertiary text-left">
+                  * Credentials stay securely encrypted with AES-256-GCM on the database server.
+                </p>
+              )}
+              {!user && (
+                <p className="text-[9px] text-text-tertiary text-left">
+                  * Guest keys stay in this browser only; sign in to save encrypted keys to your account.
+                </p>
+              )}
             </div>
 
             {/* MODEL CUSTOMIZATION CONFIG SECTION */}
@@ -1808,9 +2647,9 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-bg-base/35 border border-border-subtle p-3 rounded-lg">
-                {Object.keys(PROVIDER_MODELS).map((providerId) => {
+                {Object.keys(providerModels).map((providerId) => {
                   const providerMeta = PROVIDER_META[providerId];
-                  const models = PROVIDER_MODELS[providerId];
+                  const models = providerModels[providerId];
                   return (
                     <div key={providerId} className="space-y-1.5 text-xs">
                       <label className="font-semibold text-text-secondary flex items-center gap-1.5">
@@ -1822,7 +2661,6 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                         onChange={(e) => {
                           const updated = { ...selectedModelIds, [providerId]: e.target.value };
                           setSelectedModelIds(updated);
-                          // Auto-save key to storage
                           const storage = user ? localStorage : sessionStorage;
                           storage.setItem("orchestrator_selected_models", JSON.stringify(updated));
                         }}
@@ -1840,38 +2678,40 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
               </div>
             </div>
 
-            {/* API SIMULATOR ERROR CONFIGURATION SECTION */}
-            <div className="space-y-4 pt-4 border-t border-border-subtle text-left">
-              <div className="flex justify-between items-center">
-                <h4 className="text-xs font-bold text-accent-primary uppercase tracking-wider">3. API Call Error Simulator</h4>
-                <span className="text-[9px] text-text-tertiary font-mono">Configure runtime response states</span>
-              </div>
+            {/* API SIMULATOR ERROR CONFIGURATION SECTION (GUEST ONLY VIEW) */}
+            {!user && (
+              <div className="space-y-4 pt-4 border-t border-border-subtle text-left">
+                <div className="flex justify-between items-center">
+                  <h4 className="text-xs font-bold text-accent-primary uppercase tracking-wider">3. API Call Error Simulator</h4>
+                  <span className="text-[9px] text-text-tertiary font-mono">Configure runtime response states</span>
+                </div>
 
-              <div className="space-y-2.5 bg-bg-base/35 border border-border-subtle p-3 rounded-lg">
-                {Object.keys(MODEL_TEMPLATES).map((id) => {
-                  const m = MODEL_TEMPLATES[id];
-                  return (
-                    <div key={id} className="flex items-center justify-between gap-3 text-xs">
-                      <span className="font-semibold text-text-secondary">{m.name} API Call State:</span>
-                      <select
-                        value={apiErrorConfigs[id]}
-                        onChange={(e) => {
-                          const updated = { ...apiErrorConfigs, [id]: e.target.value as any };
-                          setApiErrorConfigs(updated);
-                          saveStateToStorage(chats, apiKeys, nextChatCounter, updated);
-                        }}
-                        className="bg-bg-surface-raised border border-border-subtle rounded-md px-2.5 py-1 text-[11px] text-text-primary outline-none"
-                      >
-                        <option value="success">Success (Healthy Call)</option>
-                        <option value="key_error">Authentication Key Error (401)</option>
-                        <option value="rate_limit">Rate Limit Exceeded (429)</option>
-                        <option value="timeout">Gateway Network Timeout</option>
-                      </select>
-                    </div>
-                  );
-                })}
+                <div className="space-y-2.5 bg-bg-base/35 border border-border-subtle p-3 rounded-lg">
+                  {Object.keys(MODEL_TEMPLATES).map((id) => {
+                    const m = MODEL_TEMPLATES[id];
+                    return (
+                      <div key={id} className="flex items-center justify-between gap-3 text-xs">
+                        <span className="font-semibold text-text-secondary">{m.name} API Call State:</span>
+                        <select
+                          value={apiErrorConfigs[id]}
+                          onChange={(e) => {
+                            const updated = { ...apiErrorConfigs, [id]: e.target.value as any };
+                            setApiErrorConfigs(updated);
+                            saveStateToStorage(chats, apiKeys, nextChatCounter, updated);
+                          }}
+                          className="bg-bg-surface-raised border border-border-subtle rounded-md px-2.5 py-1 text-[11px] text-text-primary outline-none"
+                        >
+                          <option value="success">Success (Healthy Call)</option>
+                          <option value="key_error">Authentication Key Error (401)</option>
+                          <option value="rate_limit">Rate Limit Exceeded (429)</option>
+                          <option value="timeout">Gateway Network Timeout</option>
+                        </select>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* WORKERS CONFIG SECTION */}
             <div className="space-y-4 pt-4 border-t border-border-subtle text-left">
@@ -1879,7 +2719,7 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold text-accent-primary uppercase tracking-wider">4. Worker Pipeline Routing</h4>
                 <span className="text-xs text-text-secondary font-semibold">
-                  Max workers: {maxWorkers} {selectedEvaluator ? '(evaluator active)' : '(no evaluator — single worker only)'}
+                  Max workers: {maxWorkers} {selectedEvaluator ? '(evaluator active)' : '(no evaluator — click to swap worker)'}
                 </span>
               </div>
 
@@ -1890,99 +2730,80 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
                   {Object.keys(MODEL_TEMPLATES).map((id) => {
                     const config = MODEL_TEMPLATES[id];
                     const isSelected = selectedWorkers.includes(id);
-                    const isVisuallyDisabled = selectedEvaluator === null && !isSelected;
+                    // Only block deselecting the last active worker — unselected workers are always clickable
+                    const isOnlyWorkerSelected = isSelected && selectedWorkers.length <= 1;
                     return (
                       <button
                         key={id}
                         onClick={() => handleToggleWorker(id)}
-                        className={`flex items-center justify-between p-2 rounded-md border text-xs transition duration-150 ${
+                        disabled={isOnlyWorkerSelected}
+                        title={isOnlyWorkerSelected ? 'At least one worker must be active' : !selectedEvaluator && !isSelected ? 'Click to switch to this worker' : undefined}
+                        className={`flex flex-col items-center justify-between p-3 rounded-lg border text-center transition-all ${
                           isSelected 
-                            ? "bg-status-success-bg border-status-success/30 text-status-success font-bold" 
-                            : "border-border-subtle bg-bg-base/20 text-text-secondary hover:bg-bg-surface-raised"
-                        } ${isVisuallyDisabled ? "opacity-40" : ""}`}
-                      >
-                        <span>{config.name}</span>
-                        {isSelected && <span className="text-status-success font-bold text-[10px]">✓</span>}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Evaluator Configuration Selector */}
-              <div className="space-y-1.5 pt-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-[11px] font-semibold text-text-secondary">Evaluator Model (marked with red tick):</p>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
-                  <button
-                    onClick={() => setSelectedEvaluator(null)}
-                    className={`flex items-center justify-between p-2 rounded-md border text-xs transition duration-150 ${
-                      selectedEvaluator === null 
-                        ? "bg-accent-secondary-bg border-accent-secondary/30 text-accent-secondary font-bold" 
-                        : "border-border-subtle bg-bg-base/20 text-text-secondary hover:bg-bg-surface-raised"
-                    }`}
-                  >
-                    <span>None (Skip)</span>
-                    {selectedEvaluator === null && <span className="text-accent-secondary font-bold text-[10px]">✓</span>}
-                  </button>
-                  {Object.keys(MODEL_TEMPLATES).map((id) => {
-                    const config = MODEL_TEMPLATES[id];
-                    const isSelected = selectedEvaluator === id;
-                    return (
-                      <button
-                        key={id}
-                        onClick={() => setSelectedEvaluator(id)}
-                        className={`flex items-center justify-between p-2 rounded-md border text-xs transition duration-150 ${
-                          isSelected 
-                            ? "bg-accent-secondary-bg border-accent-secondary/30 text-accent-secondary font-bold" 
-                            : "border-border-subtle bg-bg-base/20 text-text-secondary hover:bg-bg-surface-raised"
+                            ? "bg-status-success-bg/20 border-status-success text-status-success font-bold" 
+                            : "border-border-subtle bg-bg-surface-raised/40 hover:bg-bg-surface-raised text-text-secondary hover:text-text-primary"
                         }`}
                       >
-                        <span>{config.name}</span>
-                        {isSelected && <span className="text-accent-secondary font-bold text-[10px]">✓</span>}
+                        <span className={`h-1.5 w-1.5 rounded-full ${config.avatarColor} mb-2`} />
+                        <span className="text-[10px] truncate max-w-[80px]">{config.name}</span>
+                        {isSelected && <span className="text-[9px] font-bold mt-1 text-status-success">✓</span>}
                       </button>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Auto-Title Model Settings */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3">
-                <div className="text-left">
-                  <p className="text-[11px] font-semibold text-text-secondary">Auto-Title Thread Configuration</p>
-                  <p className="text-[9px] text-text-tertiary font-mono">Model used to auto-name sidebar threads</p>
-                </div>
-                <select 
+              {/* Evaluator Pick Dropdown */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-text-secondary">Synthesis Evaluator Routing</label>
+                <select
+                  value={selectedEvaluator || "skip"}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSelectedEvaluator(val === "skip" ? null : val);
+                  }}
+                  className="w-full bg-bg-surface-raised border border-border-subtle rounded-md px-2.5 py-1.5 text-[11px] text-text-primary outline-none focus:border-accent-primary transition-all font-mono"
+                >
+                  <option value="skip">None (Skip Evaluator, Stream chosen Worker directly)</option>
+                  {Object.keys(MODEL_TEMPLATES).map((id) => {
+                    const config = MODEL_TEMPLATES[id];
+                    return (
+                      <option key={id} value={id}>
+                        Use {config.name} as Evaluator
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {/* Auto Title selector */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-text-secondary">Auto-Rename Thread Model</label>
+                <select
                   value={autoTitleModel}
                   onChange={(e) => setAutoTitleModel(e.target.value)}
-                  className="bg-bg-surface-raised border border-border-subtle text-xs px-2 py-1.5 rounded-md text-text-primary font-mono w-full sm:w-44"
+                  className="w-full bg-bg-surface-raised border border-border-subtle rounded-md px-2.5 py-1.5 text-[11px] text-text-primary outline-none focus:border-accent-primary transition-all font-mono"
                 >
-                  {eligibleAutoTitleModelIds.map((id) => (
-                    <option key={id} value={id}>{MODEL_TEMPLATES[id].name}</option>
-                  ))}
+                  {eligibleAutoTitleModelIds.map((id) => {
+                    const config = MODEL_TEMPLATES[id];
+                    return (
+                      <option key={id} value={id}>
+                        {config.name} ({config.provider})
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
             </div>
 
-            {/* Save Buttons */}
-            <div className="flex gap-3 justify-end pt-4 border-t border-border-subtle">
-              <button
+            {/* Modal Footer Controls */}
+            <div className="pt-4 border-t border-border-subtle flex justify-end">
+              <button 
                 onClick={() => setKeysModalOpen(false)}
-                className="px-4 py-2 rounded-md border border-border-subtle hover:bg-bg-surface-raised text-xs font-semibold text-text-secondary hover:text-text-primary transition"
+                className="px-4 py-2 bg-accent-primary hover:bg-accent-primary-hover text-black font-bold text-xs rounded-md shadow-md shadow-accent-primary/20 active:scale-95 transition-all"
               >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  setKeysModalOpen(false);
-                  saveStateToStorage(chats, apiKeys, nextChatCounter, apiErrorConfigs, selectedModelIds);
-                  alert("Settings successfully written to storage!");
-                }}
-                className="px-4 py-2 rounded-md bg-accent-primary hover:bg-accent-primary-hover text-black text-xs font-semibold shadow-md shadow-accent-primary/20 transition duration-200"
-              >
-                Save Settings
+                Close & Apply Configuration
               </button>
             </div>
 
@@ -1993,4 +2814,3 @@ Choose QuickSort (with randomized pivot) to minimize auxiliary space footprints.
     </div>
   );
 }
-
