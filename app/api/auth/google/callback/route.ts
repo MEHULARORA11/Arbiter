@@ -83,7 +83,15 @@ export async function GET(request: NextRequest) {
     });
 
     // 9. Redirect to home page
-    const baseUrl = new URL('/', request.nextUrl.origin);
+    let redirectOrigin = request.nextUrl.origin;
+    if (process.env.GOOGLE_REDIRECT_URI) {
+      try {
+        redirectOrigin = new URL(process.env.GOOGLE_REDIRECT_URI).origin;
+      } catch (e) {
+        console.error('Failed to parse GOOGLE_REDIRECT_URI:', e);
+      }
+    }
+    const baseUrl = new URL('/', redirectOrigin);
     return NextResponse.redirect(baseUrl.toString());
   } catch (error) {
     console.error('OAuth Callback Error:', error);
