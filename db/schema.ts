@@ -5,6 +5,7 @@ export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   googleId: text('google_id').unique().notNull(),
   email: text('email').unique().notNull(),
+  emailVerified: boolean('email_verified').default(false),
   name: text('name'),
   avatarUrl: text('avatar_url'),
   totalInputTokens: integer('total_input_tokens').notNull().default(0),
