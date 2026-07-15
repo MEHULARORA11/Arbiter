@@ -2016,6 +2016,7 @@ export default function App() {
                       setActiveChatId(c.id);
                       setPipelineState("completed");
                       setActiveErrorMessage(null);
+                      setSidebarOpen(false);
                     }
                   }}
                   className={`group relative flex items-center justify-between w-full px-5 py-4 rounded-md text-left border cursor-pointer transition ${
@@ -2132,7 +2133,7 @@ export default function App() {
 
           <div className="flex items-center gap-3">
             {/* Usage Metrics Badge */}
-            <div className="flex items-center gap-3 sm:gap-4 bg-bg-surface-raised/80 border border-border-subtle px-3 py-1 rounded-md text-[10px] font-mono text-text-secondary select-none">
+            <div className="hidden sm:flex items-center gap-3 sm:gap-4 bg-bg-surface-raised/80 border border-border-subtle px-3 py-1 rounded-md text-[10px] font-mono text-text-secondary select-none">
               <div className="flex flex-col text-left">
                 <span className="text-[7.5px] text-text-tertiary uppercase font-bold tracking-wider">This Chat</span>
                 <span className="font-bold text-status-success mt-0.5">
@@ -2380,9 +2381,20 @@ export default function App() {
 
       </main>
 
-      {/* ==================== RIGHT INSPECTOR SIDEBAR ==================== */}
+      {/* Backdrop for right panel on mobile */}
       {rightPanelOpen && (
-        <aside className="w-80 border-l border-border-subtle bg-bg-surface flex flex-col shrink-0 overflow-hidden select-none">
+        <div 
+          onClick={() => setRightPanelOpen(false)}
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+        />
+      )}
+
+      {/* ==================== RIGHT INSPECTOR SIDEBAR ==================== */}
+      <aside className={`fixed inset-y-0 right-0 z-40 flex flex-col border-l border-border-subtle bg-bg-surface transition-all duration-300 ${
+        rightPanelOpen 
+          ? "translate-x-0 w-80 lg:w-80 lg:static" 
+          : "translate-x-full w-80 lg:w-0 lg:static lg:translate-x-0 lg:border-l-0 overflow-hidden"
+      } shrink-0 select-none`}>
           
           {/* Header */}
           <div className="flex h-16 items-center justify-between px-4 border-b border-border-subtle bg-bg-surface-raised">
@@ -2552,7 +2564,6 @@ export default function App() {
           </div>
 
         </aside>
-      )}
 
       {/* ==================== BYOK CREDENTIALS & SETTINGS MODAL ==================== */}
       {keysModalOpen && (

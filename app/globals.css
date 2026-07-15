@@ -128,6 +128,20 @@
 
   --shadow-2xl:
       0 35px 70px rgba(0,0,0,.70);
+
+  --animate-infinite-progress: infinite-progress 1.5s ease-in-out infinite;
+
+  @keyframes infinite-progress {
+    0% {
+      transform: translateX(-100%);
+    }
+    50% {
+      transform: translateX(0%);
+    }
+    100% {
+      transform: translateX(100%);
+    }
+  }
 }
 
 body{
